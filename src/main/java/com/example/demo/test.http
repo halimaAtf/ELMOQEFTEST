@@ -1,0 +1,22 @@
+### GET user by username
+GET http://localhost:9090/api/user/admin
+
+### POST create new user
+POST http://localhost:9090/api/user
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "1234"
+}
+
+### PUT update user password
+PUT http://localhost:9090/api/user/1
+Content-Type: application/json
+
+{
+  "password": "newpassword"
+}
+
+### DELETE user by id
+DELETE http://localhost:9090/api/user/1

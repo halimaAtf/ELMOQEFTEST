@@ -29,12 +29,12 @@ public class UserService {
         return userRepository.save(user); // ← retourne User, pas void
     }
 
-    // ── Tous les utilisateurs ─────────────────────────────
+    //  Tous les utilisateurs
     public List<User> getAllUsers() {
         return userRepository.findAll();
     }
 
-    // ── Suspendre un utilisateur ──────────────────────────
+    // Suspendre un user
     public void suspendUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + id));
@@ -42,11 +42,13 @@ public class UserService {
         userRepository.save(user);
     }
 
-    // ── Supprimer un utilisateur ──────────────────────────
+    //  Supprimer un user
     public void deleteUser(Long id) {
+
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("Utilisateur introuvable : " + id);
+            throw new RuntimeException("Utilisateur introuvable avec l'ID : " + id);
         }
+
         userRepository.deleteById(id);
     }
 }

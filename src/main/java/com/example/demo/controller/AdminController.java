@@ -1,11 +1,15 @@
 package com.example.demo.controller;
 
+import com.example.demo.Repository.DemandeRepository;
+import com.example.demo.Repository.UserRepository;
 import com.example.demo.entity.User;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,25 +21,43 @@ public class AdminController {
     private final UserService userService;
     private final EmailService emailService;
 
+    @Autowired private UserRepository userRepo;
+    @Autowired private DemandeRepository demandeRepo;
+
+    // Un seul constructeur pour éviter les conflits d'injection
     public AdminController(UserService userService, EmailService emailService) {
         this.userService = userService;
         this.emailService = emailService;
     }
 
-    // ── GET /api/admin/pending ────────────────────────────
-    @GetMapping("/pending")
-    public ResponseEntity<List<User>> getPendingUsers() {
-        List<User> pending = userService.getPendingProviders();
-        return ResponseEntity.ok(pending);
+    // Statistiques réelles pour le Dashboard
+    @GetMapping("/stats")
+    public ResponseEntity<?> getDashboardStats() {
+        Map<String, Object> stats = new HashMap<>();
+
+        // Chiffres réels de la BDD
+        stats.put("totalUsers", userRepo.count());
+        stats.put("activeProviders", userRepo.countByRoleAndStatus("PROVIDER", "ACTIVE"));
+        stats.put("completedJobs", demandeRepo.countByStatus("TERMINE"));
+
+        // Optionnel : ajouter le revenu total (somme des prix des offres terminées)
+        // stats.put("revenue", demandeRepo.sumRevenueFromCompletedJobs());
+
+        return ResponseEntity.ok(stats);
     }
 
-    // ── POST /api/admin/validate/{id}?accept=true/false ───
+    @GetMapping("/pending")
+    public ResponseEntity<List<User>> getPendingUsers() {
+        return ResponseEntity.ok(userService.getPendingProviders());
+    }
+
     @PostMapping("/validate/{id}")
     public ResponseEntity<?> validateUser(
             @PathVariable Long id,
             @RequestParam boolean accept) {
         try {
-            User user = userService.validateProvider(id, accept); // retourne User
+            // Cette méthode doit changer le statut en "ACTIVE" en BDD
+            User user = userService.validateProvider(id, accept);
 
             if (accept) {
                 emailService.sendApprovalEmail(user.getEmail(), user.getUsername());
@@ -44,21 +66,19 @@ public class AdminController {
             }
 
             return ResponseEntity.ok(Map.of(
-                    "message", accept ? "Prestataire valide, email envoye." : "Demande refusee, email envoye."
+                    "message", accept ? "Prestataire approuvé et activé." : "Demande refusée."
             ));
         } catch (Exception e) {
+            // C'est ici que l'erreur "Erreur lors de la validation" est captée
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ── GET /api/admin/users ──────────────────────────────
     @GetMapping("/users")
     public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+        return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    // ── POST /api/admin/suspend/{id} ──────────────────────
     @PostMapping("/suspend/{id}")
     public ResponseEntity<?> suspendUser(@PathVariable Long id) {
         try {
@@ -69,12 +89,11 @@ public class AdminController {
         }
     }
 
-    // ── DELETE /api/admin/users/{id} ──────────────────────
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         try {
             userService.deleteUser(id);
-            return ResponseEntity.ok(Map.of("message", "Utilisateur supprime."));
+            return ResponseEntity.ok(Map.of("message", "Utilisateur supprimé."));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

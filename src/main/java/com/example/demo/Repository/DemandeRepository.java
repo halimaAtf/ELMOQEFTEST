@@ -8,7 +8,7 @@ import java.util.List;
 
 @Repository
 public interface DemandeRepository extends JpaRepository<DemandeService, Long> {
-
+    long countByStatus(String status);
     // Demandes d'un client
     List<DemandeService> findByClientId(Long clientId);
 
@@ -16,5 +16,8 @@ public interface DemandeRepository extends JpaRepository<DemandeService, Long> {
     List<DemandeService> findByProviderId(Long providerId);
 
     // Demandes en attente par type de service
-    List<DemandeService> findByServiceTypeAndStatus(String serviceType, String status);
+    default List<DemandeService> findByStatus(String status) {
+        return null;
+    }
+
 }

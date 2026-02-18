@@ -10,9 +10,7 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
-    // Trouver un utilisateur par son nom d'utilisateur
     Optional<User> findByUsername(String username);
-
-    // Trouver les utilisateurs par rôle et statut de validation
-    List<User> findByRoleAndIsValidated(String role, boolean isValidated);
+    List<User> findByRoleAndStatus(String role, String status);
+    Optional<User> findByEmail(String email);
 }

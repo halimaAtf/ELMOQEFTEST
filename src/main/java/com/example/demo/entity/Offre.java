@@ -1,20 +1,26 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class Offre {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Double prixPropose;
-    private String message;
-    private String statutOffre = "PENDING"; // PENDING, ACCEPTED, REJECTED
+
+    private String serviceType;
+    private Double prix;
+    private Integer tempsArrivee;
+    private String description;
+    private String status = "ACTIVE";
 
     @ManyToOne
+    @JoinColumn(name = "demande_id")
     private DemandeService demande;
 
     @ManyToOne
-    private User prestataire;
-
-    // Getters & Setters
+    @JoinColumn(name = "provider_id")
+    private User provider; // Corrigé : utilise User au lieu de 'prestataire'
 }

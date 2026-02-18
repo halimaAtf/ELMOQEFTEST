@@ -1,8 +1,7 @@
 package com.example.demo.service;
 
-import com.example.demo.entity.User;
 import com.example.demo.Repository.UserRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import com.example.demo.entity.User;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,60 +10,43 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
     }
 
-    public User registerUser(String username, String email, String phone, String password, String role) {
-        // Vérifier si l'utilisateur existe déjà
-        if (userRepository.findByUsername(username).isPresent()) {
-            throw new RuntimeException("Ce nom d'utilisateur existe déjà");
-        }
-
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPhone(phone);
-        user.setPassword(passwordEncoder.encode(password));
-        user.setRole(role);
-
-        // Les clients sont validés automatiquement, les prestataires doivent attendre
-        user.setValidated(role.equals("CLIENT"));
-
-        return userRepository.save(user);
-    }
-
-    public User login(String username, String password) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
-
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new RuntimeException("Mot de passe incorrect");
-        }
-
-        if (!user.isValidated()) {
-            throw new RuntimeException("Votre compte est en attente de validation par  l'administrateur");
-        }
-
-        return user;
-    }
-
+    // ── Providers en attente ──────────────────────────────
     public List<User> getPendingProviders() {
-        return userRepository.findByRoleAndIsValidated("PROVIDER", false);
+        return userRepository.findByRoleAndStatus("PROVIDER", "PENDING");
     }
 
-    public void validateProvider(Long id, boolean accept) {
+    // ── Valider ou rejeter → retourne User (obligatoire pour l'email) ──
+    public User validateProvider(Long id, boolean accept) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + id));
 
-        if (accept) {
-            user.setValidated(true);
-            userRepository.save(user);
-        } else {
-            userRepository.delete(user);
+        user.setStatus(accept ? "ACTIVE" : "REJECTED");
+        return userRepository.save(user); // ← retourne User, pas void
+    }
+
+    // ── Tous les utilisateurs ─────────────────────────────
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // ── Suspendre un utilisateur ──────────────────────────
+    public void suspendUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + id));
+        user.setStatus("SUSPENDED");
+        userRepository.save(user);
+    }
+
+    // ── Supprimer un utilisateur ──────────────────────────
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new RuntimeException("Utilisateur introuvable : " + id);
         }
+        userRepository.deleteById(id);
     }
 }

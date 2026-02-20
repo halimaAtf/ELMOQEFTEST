@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Offre {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,6 +21,7 @@ public class Offre {
 
     @ManyToOne
     @JoinColumn(name = "demande_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private DemandeService demande;
 
     @ManyToOne

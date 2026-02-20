@@ -5,7 +5,9 @@ import lombok.*;
 import java.util.List;
 
 @Entity
-@Getter @Setter @NoArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
 public class DemandeService {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,8 +16,6 @@ public class DemandeService {
     private String serviceType;
     private String description;
     private String adresse;
-    private Double latitude;
-    private Double longitude;
     private String status = "EN_ATTENTE";
 
     @ElementCollection

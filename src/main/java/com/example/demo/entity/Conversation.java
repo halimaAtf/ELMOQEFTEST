@@ -21,14 +21,17 @@ public class Conversation {
 
     @ManyToOne
     @JoinColumn(name = "client_id")
+    @JsonIgnore
     private User client;
 
     @ManyToOne
     @JoinColumn(name = "prestataire_id")
+    @JsonIgnore
     private User prestataire;
 
     @ManyToOne
     @JoinColumn(name = "demande_id")
+    @JsonIgnore
     private DemandeService demande;
 
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

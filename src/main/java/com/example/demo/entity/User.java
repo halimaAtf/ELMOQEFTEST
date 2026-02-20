@@ -21,12 +21,17 @@ public class User {
     private String role; // ADMIN, PROVIDER, CLIENT
     private String phone;
     private String status;
+    private String profession; // e.g., Electrician, Plumber...
 
-    @OneToMany(mappedBy = "client")
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String profilePicture;
+
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<DemandeService> demandes;
 
-    @OneToMany(mappedBy = "provider")
+    @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<Offre> offres;
 }

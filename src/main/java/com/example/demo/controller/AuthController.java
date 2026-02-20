@@ -96,6 +96,9 @@ public class AuthController {
             if (user.getProfession() != null) {
                 response.put("profession", user.getProfession());
             }
+            if (user.getProfilePicture() != null) {
+                response.put("profilePicture", user.getProfilePicture());
+            }
 
             return ResponseEntity.ok(response);
 
@@ -186,6 +189,9 @@ public class AuthController {
                 response.put("email", user.getEmail());
                 response.put("role", user.getRole());
                 response.put("status", user.getStatus());
+                if (user.getProfilePicture() != null) {
+                    response.put("profilePicture", user.getProfilePicture());
+                }
                 response.put("message", "Inscription réussie ! Connexion automatique...");
             } else { // PROVIDER (EN ATTENTE)
                 response.put("role", user.getRole());

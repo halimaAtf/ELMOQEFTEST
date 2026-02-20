@@ -23,6 +23,10 @@ public class User {
     private String status;
     private String profession; // e.g., Electrician, Plumber...
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String profilePicture;
+
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<DemandeService> demandes;

@@ -16,6 +16,7 @@ public class ServiceController {
     @Autowired private DemandeRepository demandeRepo;
     @Autowired private OffreRepository offreRepo;
     @Autowired private UserRepository userRepo;
+    @Autowired private ReviewRepository reviewRepo;
 
     // ── 1. Client creates request ──
     @PostMapping("/demande/create")
@@ -27,7 +28,8 @@ public class ServiceController {
             d.setStatus("EN_ATTENTE");
             return ResponseEntity.ok(demandeRepo.save(d));
         } catch (Exception e) {
-             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+             e.printStackTrace();
+             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
 
@@ -116,6 +118,42 @@ public class ServiceController {
         }
 
         return ResponseEntity.ok(Map.of("message", "Offre acceptée, service en cours"));
+    }
+
+    // ── 7. Client leaves review for provider ──
+    @PostMapping("/demande/{id}/review")
+    public ResponseEntity<?> leaveReview(@PathVariable Long id, @RequestBody Map<String, Object> req, Authentication auth) {
+        try {
+            DemandeService demande = demandeRepo.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Demande not found"));
+
+            User client = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+
+            if (!demande.getClient().getId().equals(client.getId())) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
+            }
+
+            if (demande.getProvider() == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "No provider assigned to this demande"));
+            }
+
+            // Mark demande as completed if not already
+            demande.setStatus("TERMINEE");
+            demandeRepo.save(demande);
+
+            Review review = new Review();
+            review.setRating(Integer.parseInt(req.get("rating").toString()));
+            review.setComment((String) req.get("comment"));
+            review.setClient(client);
+            review.setProvider(demande.getProvider());
+            review.setDemande(demande);
+
+            return ResponseEntity.ok(reviewRepo.save(review));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     // --- PROFIL DYNAMIQUE (Pour Karim Ahmed -> Réel) ---

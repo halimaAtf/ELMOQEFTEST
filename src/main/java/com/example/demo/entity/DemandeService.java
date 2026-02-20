@@ -18,6 +18,11 @@ public class DemandeService {
     private Double longitude;
     private String status = "EN_ATTENTE";
 
+    @ElementCollection
+    @CollectionTable(name = "demande_photos", joinColumns = @JoinColumn(name = "demande_id"))
+    @Column(name = "photo_base64_data", columnDefinition = "LONGTEXT")
+    private List<String> photos;
+
     @ManyToOne
     @JoinColumn(name = "client_id")
     private User client; // Corrigé

@@ -17,24 +17,105 @@ public class ServiceController {
     @Autowired private OffreRepository offreRepo;
     @Autowired private UserRepository userRepo;
 
-    // --- ANCIENNES INTERACTIONS (Maintenues) ---
+    // ── 1. Client creates request ──
     @PostMapping("/demande/create")
-    public ResponseEntity<?> createDemande(@RequestBody DemandeService d) {
-        return ResponseEntity.ok(demandeRepo.save(d));
+    public ResponseEntity<?> createDemande(@RequestBody DemandeService d, Authentication auth) {
+        try {
+            User client = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+            d.setClient(client);
+            d.setStatus("EN_ATTENTE");
+            return ResponseEntity.ok(demandeRepo.save(d));
+        } catch (Exception e) {
+             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
-    // --- FLUX DE L'OFFRE (Nouveau) ---
+    // ── 2. Provider sees available requests (En attente) ──
+    @GetMapping("/demande/available")
+    public ResponseEntity<?> getAvailableRequests(Authentication auth) {
+        User provider = userRepo.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Provider not found"));
+                
+        List<DemandeService> enAttente = demandeRepo.findByStatus("EN_ATTENTE");
+        
+        // Filter by provider's profession if they have one
+        if (provider.getProfession() != null && !provider.getProfession().isBlank()) {
+           enAttente = enAttente.stream()
+               .filter(d -> d.getServiceType() != null && d.getServiceType().equalsIgnoreCase(provider.getProfession()))
+               .toList();
+        }
+        
+        return ResponseEntity.ok(enAttente);
+    }
+
+    // ── 3. Client sees my requests ──
+    @GetMapping("/demande/my")
+    public ResponseEntity<?> getMyRequests(Authentication auth) {
+        User client = userRepo.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Client not found"));
+        return ResponseEntity.ok(demandeRepo.findByClient_Id(client.getId()));
+    }
+
+    // ── 4. Provider creates offer for a request ──
     @PostMapping("/offre/create")
-    public ResponseEntity<?> createOffre(@RequestBody Map<String, Object> req) {
-        Offre o = new Offre();
-        o.setPrix(Double.valueOf(req.get("prix").toString()));
-        o.setTempsArrivee(Integer.valueOf(req.get("temps").toString()));
-        o.setServiceType(req.get("serviceType").toString());
+    public ResponseEntity<?> createOffre(@RequestBody Map<String, Object> req, Authentication auth) {
+        try {
+            Long demandeId = Long.valueOf(req.get("demandeId").toString());
+            DemandeService demande = demandeRepo.findById(demandeId)
+                    .orElseThrow(() -> new RuntimeException("Demande not found"));
 
-        User provider = userRepo.findById(Long.valueOf(req.get("providerId").toString())).get();
-        o.setProvider(provider);
+            User provider = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Provider not found"));
 
-        return ResponseEntity.ok(offreRepo.save(o));
+            Offre o = new Offre();
+            o.setPrix(Double.valueOf(req.get("prix").toString()));
+            o.setTempsArrivee(Integer.valueOf(req.get("tempsArrivee").toString())); 
+            o.setDescription((String) req.get("description")); // peut être null
+            o.setServiceType(demande.getServiceType()); // ou req.get("serviceType")
+            o.setDemande(demande);
+            o.setProvider(provider);
+            o.setStatus("EN_ATTENTE");
+
+            return ResponseEntity.ok(offreRepo.save(o));
+        } catch (Exception e) {
+             e.printStackTrace();
+             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ── 5. Client sees offers for their request ──
+    @GetMapping("/demande/{id}/offres")
+    public ResponseEntity<List<Offre>> getOffresForDemande(@PathVariable Long id) {
+        return ResponseEntity.ok(offreRepo.findByDemande_Id(id));
+    }
+    
+    // ── 6. Client accepts offer ──
+    @PostMapping("/offre/{offreId}/accept")
+    public ResponseEntity<?> acceptOffre(@PathVariable Long offreId) {
+        Offre offre = offreRepo.findById(offreId)
+                .orElseThrow(() -> new RuntimeException("Offre not found"));
+        DemandeService demande = offre.getDemande();
+
+        // Update Demande
+        demande.setStatus("EN_COURS");
+        demande.setProvider(offre.getProvider());
+        demandeRepo.save(demande);
+
+        // Update Offre
+        offre.setStatus("ACCEPTEE");
+        offreRepo.save(offre);
+        
+        // (Optionnel) Rejeter autres offres
+        List<Offre> others = offreRepo.findByDemande_Id(demande.getId());
+        for (Offre o : others) {
+            if (!o.getId().equals(offreId)) {
+                o.setStatus("REFUSEE");
+                offreRepo.save(o);
+            }
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Offre acceptée, service en cours"));
     }
 
     // --- PROFIL DYNAMIQUE (Pour Karim Ahmed -> Réel) ---

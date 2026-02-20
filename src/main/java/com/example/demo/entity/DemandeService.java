@@ -26,6 +26,6 @@ public class DemandeService {
     @JoinColumn(name = "provider_id")
     private User provider; // Corrigé
 
-    @OneToMany(mappedBy = "demande")
+    @OneToMany(mappedBy = "demande", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Offre> offres;
 }

@@ -27,9 +27,9 @@ public class AuthController {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuthenticationManager authenticationManager;
 
-    // ─────────────────────────────────────────────
+   
     //  LOGIN
-    // ─────────────────────────────────────────────
+    
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req, HttpServletRequest request) {
         try {
@@ -93,6 +93,9 @@ public class AuthController {
             response.put("email", user.getEmail());
             response.put("role", user.getRole());
             response.put("status", user.getStatus());
+            if (user.getProfession() != null) {
+                response.put("profession", user.getProfession());
+            }
 
             return ResponseEntity.ok(response);
 
@@ -158,25 +161,41 @@ public class AuthController {
             user.setPassword(passwordEncoder.encode(req.getPassword()));
             user.setRole(role);
             user.setStatus(role.equals("PROVIDER") ? "PENDING" : "ACTIVE");
+            if (role.equals("PROVIDER") && req.getProfession() != null) {
+                user.setProfession(req.getProfession());
+            }
 
             userRepository.save(user);
 
-            // 6. Log succès dans IntelliJ
+            // 6. Log succès 
             System.out.println("=== INSCRIPTION OK : " + user.getUsername() + " / " + user.getRole() + " / " + user.getStatus());
 
-            // 7. Réponse
+            // 7. Logique de réponse différenciée
             Map<String, Object> response = new HashMap<>();
-            response.put("role", user.getRole());
-            response.put("status", user.getStatus());
-            response.put("message", role.equals("PROVIDER")
-                    ? "Inscription réussie ! En attente de validation par un administrateur."
-                    : "Inscription réussie ! Vous pouvez maintenant vous connecter."
-            );
+            
+            if (role.equals("CLIENT")) { // AUTO-LOGIN POUR CLIENT
+                // On authentifie manuellement l'utilisateur
+                Authentication auth = authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
+                );
+                SecurityContextHolder.getContext().setAuthentication(auth);
+
+                // On renvoie les infos complètes pour le frontend (comme au login)
+                response.put("id", user.getId());
+                response.put("username", user.getUsername());
+                response.put("email", user.getEmail());
+                response.put("role", user.getRole());
+                response.put("status", user.getStatus());
+                response.put("message", "Inscription réussie ! Connexion automatique...");
+            } else { // PROVIDER (EN ATTENTE)
+                response.put("role", user.getRole());
+                response.put("status", user.getStatus());
+                response.put("message", "Inscription réussie ! En attente de validation par un administrateur.");
+            }
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            // ✅ Log l'erreur exacte dans IntelliJ console
             System.err.println("=== ERREUR REGISTER : " + e.getClass().getName() + " : " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of(
@@ -184,10 +203,7 @@ public class AuthController {
             ));
         }
     }
-
-    // ─────────────────────────────────────────────
     //  LOGOUT
-    // ─────────────────────────────────────────────
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
@@ -196,9 +212,8 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Deconnexion reussie"));
     }
 
-    // ─────────────────────────────────────────────
+   
     //  INNER CLASSES
-    // ─────────────────────────────────────────────
     public static class LoginRequest {
         private String username;
         private String password;
@@ -214,6 +229,7 @@ public class AuthController {
         private String phone;
         private String password;
         private String role;
+        private String profession;
         public String getUsername() { return username; }
         public void setUsername(String u) { this.username = u; }
         public String getEmail() { return email; }
@@ -224,5 +240,7 @@ public class AuthController {
         public void setPassword(String p) { this.password = p; }
         public String getRole() { return role; }
         public void setRole(String r) { this.role = r; }
+        public String getProfession() { return profession; }
+        public void setProfession(String pr) { this.profession = pr; }
     }
 }

@@ -24,6 +24,7 @@ public class AdminController {
     @Autowired private UserRepository userRepo;
     @Autowired private DemandeRepository demandeRepo;
 
+
     // Un seul constructeur pour éviter les conflits d'injection
     public AdminController(UserService userService, EmailService emailService) {
         this.userService = userService;

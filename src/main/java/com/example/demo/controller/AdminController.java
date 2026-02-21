@@ -61,7 +61,7 @@ public class AdminController {
             User user = userService.validateProvider(id, accept);
 
             if (accept) {
-                emailService.sendApprovalEmail(user.getEmail(), user.getUsername());
+                emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), user.getVerificationCode());
             } else {
                 emailService.sendRejectionEmail(user.getEmail(), user.getUsername());
             }

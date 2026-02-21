@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.User;
 import com.example.demo.Repository.UserRepository;
+import com.example.demo.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ public class AuthController {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private AuthenticationManager authenticationManager;
+    @Autowired private EmailService emailService;
 
    
     //  LOGIN
@@ -59,6 +61,14 @@ public class AuthController {
 
             // 5. Vérifier le statut
             switch (user.getStatus()) {
+                case "AWAITING_VERIFICATION" -> {
+                    SecurityContextHolder.clearContext();
+                    return ResponseEntity.ok().body(Map.of(
+                            "status", "AWAITING_VERIFICATION",
+                            "userId", user.getId(),
+                            "message", "Veuillez entrer le code de vérification reçu par email."
+                    ));
+                }
                 case "PENDING" -> {
                     SecurityContextHolder.clearContext();
                     return ResponseEntity.status(403).body(Map.of(
@@ -168,6 +178,12 @@ public class AuthController {
                 user.setProfession(req.getProfession());
             }
 
+            if (role.equals("PROVIDER")) {
+                // Generate a 6-digit verification code
+                String code = String.format("%06d", new java.util.Random().nextInt(999999));
+                user.setVerificationCode(code);
+            }
+
             userRepository.save(user);
 
             // 6. Log succès 
@@ -209,6 +225,32 @@ public class AuthController {
             ));
         }
     }
+    // ─────────────────────────────────────────────
+    //  VERIFY CODE
+    // ─────────────────────────────────────────────
+    @PostMapping("/verify-code")
+    public ResponseEntity<?> verifyCode(@RequestBody Map<String, String> request) {
+        try {
+            Long userId = Long.valueOf(request.get("userId"));
+            String code = request.get("code");
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+
+            if ("AWAITING_VERIFICATION".equals(user.getStatus()) && code.equals(user.getVerificationCode())) {
+                user.setStatus("ACTIVE");
+                // Clear code if you want, but fine to keep it
+                userRepository.save(user);
+
+                return ResponseEntity.ok(Map.of("message", "Compte vérifié avec succès. Vous pouvez maintenant vous connecter."));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "Code de vérification invalide."));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Erreur serveur"));
+        }
+    }
+
     //  LOGOUT
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {

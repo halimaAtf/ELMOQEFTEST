@@ -25,11 +25,11 @@ public class DemandeService {
 
     @ManyToOne
     @JoinColumn(name = "client_id")
-    private User client; // Corrigé
+    private User client;
 
     @ManyToOne
     @JoinColumn(name = "provider_id")
-    private User provider; // Corrigé
+    private User provider; 
 
     @OneToMany(mappedBy = "demande", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Offre> offres;

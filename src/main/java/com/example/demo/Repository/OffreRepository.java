@@ -7,9 +7,7 @@ import java.util.List;
 
 @Repository
 public interface OffreRepository extends JpaRepository<Offre, Long> {
-    // Pour afficher les offres reçues par le client pour une demande spécifique
     List<Offre> findByDemande_Id(Long demandeId);
 
-    // Pour que le prestataire voie ses propres offres
     List<Offre> findByProvider_Id(Long providerId);
 }

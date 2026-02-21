@@ -26,5 +26,5 @@ public class Offre {
 
     @ManyToOne
     @JoinColumn(name = "provider_id")
-    private User provider; // Corrigé : utilise User au lieu de 'prestataire'
+    private User provider; 
 }

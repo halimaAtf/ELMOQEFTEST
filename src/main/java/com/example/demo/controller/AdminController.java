@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.Repository.DemandeRepository;
 import com.example.demo.Repository.UserRepository;
+import com.example.demo.Repository.SystemSettingRepository;
+import com.example.demo.entity.SystemSetting;
 import com.example.demo.entity.User;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.UserService;
@@ -23,6 +25,7 @@ public class AdminController {
 
     @Autowired private UserRepository userRepo;
     @Autowired private DemandeRepository demandeRepo;
+    @Autowired private SystemSettingRepository settingRepo;
 
 
     // Un seul constructeur pour éviter les conflits d'injection
@@ -41,8 +44,29 @@ public class AdminController {
         stats.put("activeProviders", userRepo.countByRoleAndStatus("PROVIDER", "ACTIVE"));
         stats.put("completedJobs", demandeRepo.countByStatus("TERMINE"));
 
-        // Optionnel : ajouter le revenu total (somme des prix des offres terminées)
-        // stats.put("revenue", demandeRepo.sumRevenueFromCompletedJobs());
+        Double totalRevenue = demandeRepo.sumRevenueFromCompletedJobs();
+        stats.put("revenue", totalRevenue != null ? totalRevenue : 0.0);
+
+        List<Object[]> revenueByMonthRaw = demandeRepo.getRevenueByMonth();
+        List<Map<String, Object>> chartData = new java.util.ArrayList<>();
+        
+        // Add fake base data if DB is empty to prevent visual break
+        if(revenueByMonthRaw.isEmpty()){
+            chartData.add(Map.of("name", "Jan", "value", 0));
+            chartData.add(Map.of("name", "Feb", "value", 0));
+            chartData.add(Map.of("name", "Mar", "value", 0));
+            chartData.add(Map.of("name", "Apr", "value", 0));
+            chartData.add(Map.of("name", "May", "value", 0));
+        } else {
+             for(Object[] row : revenueByMonthRaw) {
+                 Map<String, Object> map = new HashMap<>();
+                 map.put("name", row[0]);
+                 map.put("value", row[1]);
+                 chartData.add(map);
+             }
+        }
+        
+        stats.put("chartData", chartData);
 
         return ResponseEntity.ok(stats);
     }
@@ -98,5 +122,31 @@ public class AdminController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    // ─────────────────────────────────────────────
+    //  SETTINGS
+    // ─────────────────────────────────────────────
+    @GetMapping("/settings")
+    public ResponseEntity<?> getSettings() {
+        SystemSetting setting = settingRepo.findById(1L).orElseGet(() -> {
+            SystemSetting defaultSetting = new SystemSetting();
+            return settingRepo.save(defaultSetting);
+        });
+        return ResponseEntity.ok(setting);
+    }
+
+    @PostMapping("/settings")
+    public ResponseEntity<?> saveSettings(@RequestBody SystemSetting newSettings) {
+        SystemSetting setting = settingRepo.findById(1L).orElse(new SystemSetting());
+        setting.setId(1L);
+        setting.setPlatformName(newSettings.getPlatformName());
+        setting.setSupportEmail(newSettings.getSupportEmail());
+        if(newSettings.getPlatformFee() != null) setting.setPlatformFee(newSettings.getPlatformFee());
+        if(newSettings.getEmailNotifications() != null) setting.setEmailNotifications(newSettings.getEmailNotifications());
+        if(newSettings.getAutoApprove() != null) setting.setAutoApprove(newSettings.getAutoApprove());
+        
+        settingRepo.save(setting);
+        return ResponseEntity.ok(Map.of("message", "Settings updated successfully"));
     }
 }

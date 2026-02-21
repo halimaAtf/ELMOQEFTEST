@@ -17,6 +17,9 @@ public class DemandeService {
     private String description;
     private String adresse;
     private String status = "EN_ATTENTE";
+    
+    @Column(name = "created_at")
+    private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
 
     @ElementCollection
     @CollectionTable(name = "demande_photos", joinColumns = @JoinColumn(name = "demande_id"))

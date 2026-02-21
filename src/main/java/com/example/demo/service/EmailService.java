@@ -34,6 +34,19 @@ public class EmailService {
         );
     }
 
+    public void sendPasswordResetEmail(String toEmail, String username, String code) {
+        sendSimpleEmail(
+                toEmail,
+                "Réinitialisation de votre mot de passe ELMOQEF",
+                "Bonjour " + username + ",\n\n" +
+                        "Vous avez demandé la réinitialisation de votre mot de passe.\n" +
+                        "Voici votre code de sécurité à saisir pour créer un nouveau mot de passe :\n\n" +
+                        "CODE : " + code + "\n\n" +
+                        "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.\n\n" +
+                        "L'équipe ELMOQEF"
+        );
+    }
+
     //  Approbation provider
     public void sendApprovalEmail(String toEmail, String username) {
         sendSimpleEmail(

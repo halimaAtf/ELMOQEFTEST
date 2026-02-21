@@ -63,6 +63,14 @@ public class ServiceController {
         return ResponseEntity.ok(demandeRepo.findByClient_Id(client.getId()));
     }
 
+    // ── 3.5. Provider sees their assigned requests ──
+    @GetMapping("/demande/provider/my")
+    public ResponseEntity<?> getProviderRequests(Authentication auth) {
+        User provider = userRepo.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Provider not found"));
+        return ResponseEntity.ok(demandeRepo.findByProvider_Id(provider.getId()));
+    }
+
     // ── 4. Provider creates offer for a request ──
     @PostMapping("/offre/create")
     public ResponseEntity<?> createOffre(@RequestBody Map<String, Object> req, Authentication auth) {

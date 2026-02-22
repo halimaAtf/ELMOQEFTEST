@@ -21,6 +21,10 @@ public class ServiceController {
     private UserRepository userRepo;
     @Autowired
     private ReviewRepository reviewRepo;
+    @Autowired
+    private SupportTicketRepository supportRepo;
+    @Autowired
+    private NotificationRepository notificationRepo;
 
     // ── 1. Client creates request ──
     @PostMapping("/demande/create")
@@ -91,7 +95,14 @@ public class ServiceController {
             o.setProvider(provider);
             o.setStatus("EN_ATTENTE");
 
-            return ResponseEntity.ok(offreRepo.save(o));
+            Offre saved = offreRepo.save(o);
+
+            Notification notif = new Notification();
+            notif.setUser(demande.getClient());
+            notif.setMessage("Nouvelle offre de " + provider.getUsername() + " pour votre demande de " + demande.getServiceType());
+            notificationRepo.save(notif);
+
+            return ResponseEntity.ok(saved);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -126,10 +137,37 @@ public class ServiceController {
             if (!o.getId().equals(offreId)) {
                 o.setStatus("REFUSEE");
                 offreRepo.save(o);
+                
+                Notification refNotif = new Notification();
+                refNotif.setUser(o.getProvider());
+                refNotif.setMessage("Votre offre pour " + demande.getServiceType() + " a été refusée.");
+                notificationRepo.save(refNotif);
             }
         }
 
+        Notification accNotif = new Notification();
+        accNotif.setUser(offre.getProvider());
+        accNotif.setMessage("Félicitations! Votre offre pour " + demande.getServiceType() + " a été acceptée.");
+        notificationRepo.save(accNotif);
+
         return ResponseEntity.ok(Map.of("message", "Offre acceptée, service en cours"));
+    }
+
+    @PostMapping("/offre/{offreId}/reject")
+    public ResponseEntity<?> rejectOffre(@PathVariable Long offreId) {
+        Offre offre = offreRepo.findById(offreId)
+                .orElseThrow(() -> new RuntimeException("Offre not found"));
+        DemandeService demande = offre.getDemande();
+
+        offre.setStatus("REFUSEE");
+        offreRepo.save(offre);
+
+        Notification notif = new Notification();
+        notif.setUser(offre.getProvider());
+        notif.setMessage("Votre offre pour " + demande.getServiceType() + " a été refusée par le client.");
+        notificationRepo.save(notif);
+
+        return ResponseEntity.ok(Map.of("message", "Offre refusée"));
     }
 
     // ── 7. Client leaves review for provider ──
@@ -156,7 +194,8 @@ public class ServiceController {
             demandeRepo.save(demande);
 
             Review review = new Review();
-            review.setRating(Integer.parseInt(req.get("rating").toString()));
+            Object ratingObj = req.get("rating");
+            review.setRating(ratingObj instanceof Number ? ((Number) ratingObj).intValue() : Integer.parseInt(ratingObj.toString()));
             review.setComment((String) req.get("comment"));
             review.setClient(client);
             review.setProvider(demande.getProvider());
@@ -175,5 +214,153 @@ public class ServiceController {
         if (auth == null)
             return ResponseEntity.status(401).build();
         return ResponseEntity.ok(userRepo.findByUsername(auth.getName()));
+    }
+
+    // --- SUPPORT TICKET ---
+    @PostMapping("/support")
+    public ResponseEntity<?> createSupportTicket(@RequestBody Map<String, String> req, Authentication auth) {
+        try {
+            User user = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            SupportTicket ticket = new SupportTicket();
+            ticket.setUser(user);
+            ticket.setMessage(req.get("message"));
+            return ResponseEntity.ok(supportRepo.save(ticket));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // --- PROVIDER STATS ---
+    @GetMapping("/provider/stats")
+    public ResponseEntity<?> getProviderStats(Authentication auth) {
+        try {
+            User provider = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Provider not found"));
+            
+            List<DemandeService> myDemandes = demandeRepo.findByProvider_Id(provider.getId());
+            int jobsDone = 0;
+            double earnings = 0.0;
+            
+            for (DemandeService ds : myDemandes) {
+                if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
+                    jobsDone++;
+                    // Find accepted offer for this demande
+                    if (ds.getOffres() != null) {
+                        for (Offre o : ds.getOffres()) {
+                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus()) || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
+                                earnings += o.getPrix();
+                            }
+                        }
+                    }
+                }
+            }
+
+            List<Review> reviews = reviewRepo.findByProviderId(provider.getId());
+            double averageRating = 5.0; // Default to 5.0 if no reviews
+            if (reviews != null && !reviews.isEmpty()) {
+                averageRating = reviews.stream().mapToInt(Review::getRating).average().orElse(5.0);
+            }
+
+            averageRating = Math.round(averageRating * 10.0) / 10.0; // Round to 1 decimal
+            int reviewCount = (reviews != null) ? reviews.size() : 0;
+
+            return ResponseEntity.ok(Map.of(
+                "jobsDone", jobsDone,
+                "earnings", earnings,
+                "rating", averageRating,
+                "reviewCount", reviewCount
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // --- CLIENT STATS ---
+    @GetMapping("/client/stats")
+    public ResponseEntity<?> getClientStats(Authentication auth) {
+        try {
+            User client = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Client not found"));
+            
+            List<DemandeService> myDemandes = demandeRepo.findByClient_Id(client.getId());
+            int requestsMade = myDemandes.size();
+            double totalSpent = 0.0;
+            
+            for (DemandeService ds : myDemandes) {
+                if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
+                    if (ds.getOffres() != null) {
+                        for (Offre o : ds.getOffres()) {
+                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus()) || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
+                                totalSpent += o.getPrix();
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Clients don't receive reviews yet, so default 5.0
+            return ResponseEntity.ok(Map.of(
+                "requestsMade", requestsMade,
+                "totalSpent", totalSpent,
+                "rating", 5.0,
+                "reviewCount", 0
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // --- GET PROVIDER PUBLIC PROFILE ---
+    @GetMapping("/provider/{username}/profile")
+    public ResponseEntity<?> getProviderProfile(@PathVariable String username) {
+        try {
+            User provider = userRepo.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("Provider not found"));
+
+            List<DemandeService> myDemandes = demandeRepo.findByProvider_Id(provider.getId());
+            int jobsDone = 0;
+            for (DemandeService ds : myDemandes) {
+                if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
+                    jobsDone++;
+                }
+            }
+
+            List<Review> reviews = reviewRepo.findByProviderId(provider.getId());
+            double averageRating = 5.0; 
+            int reviewCount = 0;
+            List<Map<String, Object>> reviewDTOs = new ArrayList<>();
+            if (reviews != null && !reviews.isEmpty()) {
+                averageRating = reviews.stream().mapToInt(Review::getRating).average().orElse(5.0);
+                averageRating = Math.round(averageRating * 10.0) / 10.0;
+                reviewCount = reviews.size();
+                for (Review r : reviews) {
+                    reviewDTOs.add(Map.of(
+                        "id", r.getId(),
+                        "rating", r.getRating(),
+                        "comment", r.getComment() != null ? r.getComment() : "",
+                        "createdAt", r.getCreatedAt().toString()
+                    ));
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "id", provider.getId(),
+                "username", provider.getUsername(),
+                "profession", provider.getProfession() != null ? provider.getProfession() : provider.getRole(),
+                "phone", provider.getPhone() != null ? provider.getPhone() : "",
+                "profilePicture", provider.getProfilePicture() != null ? provider.getProfilePicture() : "",
+                "jobsDone", jobsDone,
+                "rating", averageRating,
+                "reviewCount", reviewCount,
+                "reviews", reviewDTOs
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

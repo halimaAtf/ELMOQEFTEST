@@ -3,7 +3,9 @@ package com.example.demo.controller;
 import com.example.demo.Repository.DemandeRepository;
 import com.example.demo.Repository.UserRepository;
 import com.example.demo.Repository.SystemSettingRepository;
+import com.example.demo.Repository.SupportTicketRepository;
 import com.example.demo.entity.SystemSetting;
+import com.example.demo.entity.SupportTicket;
 import com.example.demo.entity.User;
 import com.example.demo.service.EmailService;
 import com.example.demo.service.UserService;
@@ -25,7 +27,11 @@ public class AdminController {
 
     @Autowired private UserRepository userRepo;
     @Autowired private DemandeRepository demandeRepo;
-    @Autowired private SystemSettingRepository settingRepo;
+    @Autowired
+    private SystemSettingRepository settingRepo;
+    
+    @Autowired
+    private SupportTicketRepository supportRepo;
 
 
     // Un seul constructeur pour éviter les conflits d'injection
@@ -148,5 +154,21 @@ public class AdminController {
         
         settingRepo.save(setting);
         return ResponseEntity.ok(Map.of("message", "Settings updated successfully"));
+    }
+
+    // ─────────────────────────────────────────────
+    //  SUPPORT TICKETS
+    // ─────────────────────────────────────────────
+    @GetMapping("/support")
+    public ResponseEntity<?> getAllSupportTickets() {
+        return ResponseEntity.ok(supportRepo.findAll());
+    }
+
+    @DeleteMapping("/support/{id}")
+    public ResponseEntity<?> resolveSupportTicket(@PathVariable Long id) {
+        SupportTicket ticket = supportRepo.findById(id).orElseThrow();
+        ticket.setStatus("RESOLVED");
+        supportRepo.save(ticket);
+        return ResponseEntity.ok(Map.of("message", "Ticket resolved successfully"));
     }
 }

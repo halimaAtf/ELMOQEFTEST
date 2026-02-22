@@ -15,18 +15,16 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    // ── 1. Liste des Providers en attente (Utilisé par l'écran Provider Approvals) ──
     public List<User> getPendingProviders() {
         return userRepository.findByRoleAndStatus("PROVIDER", "PENDING");
     }
 
-    // ── 2. Validation/Rejet avec retour d'objet pour EmailService ──
     public User validateProvider(Long id, boolean accept) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + id));
 
         // Mise à jour du statut selon le choix de l'admin
-        user.setStatus(accept ? "ACTIVE" : "REJECTED");
+        user.setStatus(accept ? "AWAITING_VERIFICATION" : "REJECTED");
 
         // On retourne l'utilisateur sauvegardé pour que le Controller accède à user.getEmail()
         return userRepository.save(user);

@@ -50,15 +50,11 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/admin/**",
-                                "/api/demande/**",
-                                "/api/offre/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                                "/api/admin/**")
+                        .permitAll()
+                        .anyRequest().authenticated())
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                )
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable());
 

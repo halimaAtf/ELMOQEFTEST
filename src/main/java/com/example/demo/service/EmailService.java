@@ -13,7 +13,6 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
-    // ── Méthode existante — ne pas toucher ───────────────
     public void sendSimpleEmail(String to, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("iris.nadiia125@gmail.com");
@@ -23,7 +22,32 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    // ── Approbation provider ─────────────────────────────
+    public void sendVerificationEmail(String toEmail, String username, String code) {
+        sendSimpleEmail(
+                toEmail,
+                "Votre code de verification ELMOQEF",
+                "Bonjour " + username + ",\n\n" +
+                        "Merci pour votre inscription en tant que prestataire.\n" +
+                        "Voici votre code de verification a transmettre ou saisir pour finaliser votre inscription :\n\n" +
+                        "CODE : " + code + "\n\n" +
+                        "L'equipe ELMOQEF"
+        );
+    }
+
+    public void sendPasswordResetEmail(String toEmail, String username, String code) {
+        sendSimpleEmail(
+                toEmail,
+                "Réinitialisation de votre mot de passe ELMOQEF",
+                "Bonjour " + username + ",\n\n" +
+                        "Vous avez demandé la réinitialisation de votre mot de passe.\n" +
+                        "Voici votre code de sécurité à saisir pour créer un nouveau mot de passe :\n\n" +
+                        "CODE : " + code + "\n\n" +
+                        "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.\n\n" +
+                        "L'équipe ELMOQEF"
+        );
+    }
+
+    //  Approbation provider
     public void sendApprovalEmail(String toEmail, String username) {
         sendSimpleEmail(
                 toEmail,
@@ -35,7 +59,7 @@ public class EmailService {
         );
     }
 
-    // ── Rejet provider ───────────────────────────────────
+    //  Rejet provider 
     public void sendRejectionEmail(String toEmail, String username) {
         sendSimpleEmail(
                 toEmail,

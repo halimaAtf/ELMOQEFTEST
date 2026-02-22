@@ -18,14 +18,14 @@ public class User {
 
     private String password;
     private String email;
-    private String role; // ADMIN, PROVIDER, CLIENT
+    private String role; 
     private String phone;
     private String status;
-    private String profession; // e.g., Electrician, Plumber...
-
-    @Lob
+    private String profession; 
     @Column(columnDefinition = "LONGTEXT")
     private String profilePicture;
+
+    private String verificationCode;
 
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

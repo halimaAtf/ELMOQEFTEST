@@ -5,7 +5,10 @@ import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Offre {
 
     @Id
@@ -20,11 +23,10 @@ public class Offre {
 
     @ManyToOne
     @JoinColumn(name = "demande_id")
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private DemandeService demande;
 
     @ManyToOne
     @JoinColumn(name = "provider_id")
-    @JsonIgnore
-    private User provider;
+    private User provider; 
 }

@@ -6,7 +6,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 
 @Entity
-@Getter @Setter @NoArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
 public class DemandeService {
 
     @Id
@@ -16,9 +18,10 @@ public class DemandeService {
     private String serviceType;
     private String description;
     private String adresse;
-    private Double latitude;
-    private Double longitude;
     private String status = "EN_ATTENTE";
+    
+    @Column(name = "created_at")
+    private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
 
     @ElementCollection
     @CollectionTable(name = "demande_photos", joinColumns = @JoinColumn(name = "demande_id"))
@@ -27,13 +30,11 @@ public class DemandeService {
 
     @ManyToOne
     @JoinColumn(name = "client_id")
-    @JsonIgnore
     private User client;
 
     @ManyToOne
     @JoinColumn(name = "provider_id")
-    @JsonIgnore
-    private User provider;
+    private User provider; 
 
     @OneToMany(mappedBy = "demande", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

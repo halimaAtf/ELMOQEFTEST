@@ -229,6 +229,36 @@ public class ServiceController {
         }
     }
 
+    @PutMapping("/demande/{id}/complete")
+    public ResponseEntity<?> completeDemande(@PathVariable Long id, Authentication auth) {
+        try {
+            User provider = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Provider not found"));
+            DemandeService demande = demandeRepo.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Demande not found"));
+
+            if (demande.getProvider() == null || !demande.getProvider().getId().equals(provider.getId())) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized to complete this request"));
+            }
+
+            demande.setStatus("TERMINEE");
+            demandeRepo.save(demande);
+
+            // Notify client
+            if (demande.getClient() != null) {
+                Notification notif = new Notification();
+                notif.setUser(demande.getClient());
+                notif.setMessage("Le prestataire " + provider.getUsername() + " a terminé votre demande de "
+                        + demande.getServiceType() + ". Veuillez laisser un avis.");
+                notificationRepo.save(notif);
+            }
+
+            return ResponseEntity.ok(Map.of("message", "Demande marked as completed"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // --- PROFIL DYNAMIQUE (Pour Karim Ahmed -> Réel) ---
     @GetMapping("/auth/me")
     public ResponseEntity<?> getMe(Authentication auth) {

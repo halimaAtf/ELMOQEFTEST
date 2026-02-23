@@ -45,16 +45,32 @@ public class ServiceController {
     // ── 2. Provider sees available requests (En attente) ──
     @GetMapping("/demande/available")
     public ResponseEntity<?> getAvailableRequests(Authentication auth) {
+        User provider = userRepo.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Provider not found"));
+
         List<DemandeService> enAttente = demandeRepo.findByStatus("EN_ATTENTE");
 
-        // Filter by provider's profession if they have one
-        // if (provider.getProfession() != null && !provider.getProfession().isBlank())
-        // {
-        // enAttente = enAttente.stream()
-        // .filter(d -> d.getServiceType() != null
-        // && d.getServiceType().equalsIgnoreCase(provider.getProfession()))
-        // .toList();
-        // }
+        // 1. Filter by provider's profession (category)
+        if (provider.getProfession() != null && !provider.getProfession().isBlank()) {
+            enAttente = enAttente.stream()
+                    .filter(d -> d.getServiceType() != null
+                            && d.getServiceType().equalsIgnoreCase(provider.getProfession()))
+                    .toList();
+        }
+
+        // 2. Hide requests where the provider already has an offer waiting for response
+        enAttente = enAttente.stream().filter(d -> {
+            if (d.getOffres() == null)
+                return true;
+            for (Offre o : d.getOffres()) {
+                if (o.getProvider() != null && o.getProvider().getId().equals(provider.getId())) {
+                    if ("EN_ATTENTE".equalsIgnoreCase(o.getStatus()) || "ACTIVE".equalsIgnoreCase(o.getStatus())) {
+                        return false; // Offer already sent
+                    }
+                }
+            }
+            return true;
+        }).toList();
 
         return ResponseEntity.ok(enAttente);
     }
@@ -99,7 +115,8 @@ public class ServiceController {
 
             Notification notif = new Notification();
             notif.setUser(demande.getClient());
-            notif.setMessage("Nouvelle offre de " + provider.getUsername() + " pour votre demande de " + demande.getServiceType());
+            notif.setMessage("Nouvelle offre de " + provider.getUsername() + " pour votre demande de "
+                    + demande.getServiceType());
             notificationRepo.save(notif);
 
             return ResponseEntity.ok(saved);
@@ -112,7 +129,10 @@ public class ServiceController {
     // ── 5. Client sees offers for their request ──
     @GetMapping("/demande/{id}/offres")
     public ResponseEntity<List<Offre>> getOffresForDemande(@PathVariable Long id) {
-        return ResponseEntity.ok(offreRepo.findByDemande_Id(id));
+        List<Offre> activeOffers = offreRepo.findByDemande_Id(id).stream()
+                .filter(o -> !"REFUSEE".equalsIgnoreCase(o.getStatus()))
+                .toList();
+        return ResponseEntity.ok(activeOffers);
     }
 
     // ── 6. Client accepts offer ──
@@ -137,7 +157,7 @@ public class ServiceController {
             if (!o.getId().equals(offreId)) {
                 o.setStatus("REFUSEE");
                 offreRepo.save(o);
-                
+
                 Notification refNotif = new Notification();
                 refNotif.setUser(o.getProvider());
                 refNotif.setMessage("Votre offre pour " + demande.getServiceType() + " a été refusée.");
@@ -195,7 +215,8 @@ public class ServiceController {
 
             Review review = new Review();
             Object ratingObj = req.get("rating");
-            review.setRating(ratingObj instanceof Number ? ((Number) ratingObj).intValue() : Integer.parseInt(ratingObj.toString()));
+            review.setRating(ratingObj instanceof Number ? ((Number) ratingObj).intValue()
+                    : Integer.parseInt(ratingObj.toString()));
             review.setComment((String) req.get("comment"));
             review.setClient(client);
             review.setProvider(demande.getProvider());
@@ -238,18 +259,19 @@ public class ServiceController {
         try {
             User provider = userRepo.findByUsername(auth.getName())
                     .orElseThrow(() -> new RuntimeException("Provider not found"));
-            
+
             List<DemandeService> myDemandes = demandeRepo.findByProvider_Id(provider.getId());
             int jobsDone = 0;
             double earnings = 0.0;
-            
+
             for (DemandeService ds : myDemandes) {
                 if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
                     jobsDone++;
                     // Find accepted offer for this demande
                     if (ds.getOffres() != null) {
                         for (Offre o : ds.getOffres()) {
-                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus()) || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
+                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus())
+                                    || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
                                 earnings += o.getPrix();
                             }
                         }
@@ -267,11 +289,10 @@ public class ServiceController {
             int reviewCount = (reviews != null) ? reviews.size() : 0;
 
             return ResponseEntity.ok(Map.of(
-                "jobsDone", jobsDone,
-                "earnings", earnings,
-                "rating", averageRating,
-                "reviewCount", reviewCount
-            ));
+                    "jobsDone", jobsDone,
+                    "earnings", earnings,
+                    "rating", averageRating,
+                    "reviewCount", reviewCount));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -284,16 +305,17 @@ public class ServiceController {
         try {
             User client = userRepo.findByUsername(auth.getName())
                     .orElseThrow(() -> new RuntimeException("Client not found"));
-            
+
             List<DemandeService> myDemandes = demandeRepo.findByClient_Id(client.getId());
             int requestsMade = myDemandes.size();
             double totalSpent = 0.0;
-            
+
             for (DemandeService ds : myDemandes) {
                 if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
                     if (ds.getOffres() != null) {
                         for (Offre o : ds.getOffres()) {
-                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus()) || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
+                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus())
+                                    || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
                                 totalSpent += o.getPrix();
                             }
                         }
@@ -303,11 +325,10 @@ public class ServiceController {
 
             // Clients don't receive reviews yet, so default 5.0
             return ResponseEntity.ok(Map.of(
-                "requestsMade", requestsMade,
-                "totalSpent", totalSpent,
-                "rating", 5.0,
-                "reviewCount", 0
-            ));
+                    "requestsMade", requestsMade,
+                    "totalSpent", totalSpent,
+                    "rating", 5.0,
+                    "reviewCount", 0));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -330,7 +351,7 @@ public class ServiceController {
             }
 
             List<Review> reviews = reviewRepo.findByProviderId(provider.getId());
-            double averageRating = 5.0; 
+            double averageRating = 5.0;
             int reviewCount = 0;
             List<Map<String, Object>> reviewDTOs = new ArrayList<>();
             if (reviews != null && !reviews.isEmpty()) {
@@ -339,25 +360,23 @@ public class ServiceController {
                 reviewCount = reviews.size();
                 for (Review r : reviews) {
                     reviewDTOs.add(Map.of(
-                        "id", r.getId(),
-                        "rating", r.getRating(),
-                        "comment", r.getComment() != null ? r.getComment() : "",
-                        "createdAt", r.getCreatedAt().toString()
-                    ));
+                            "id", r.getId(),
+                            "rating", r.getRating(),
+                            "comment", r.getComment() != null ? r.getComment() : "",
+                            "createdAt", r.getCreatedAt().toString()));
                 }
             }
 
             return ResponseEntity.ok(Map.of(
-                "id", provider.getId(),
-                "username", provider.getUsername(),
-                "profession", provider.getProfession() != null ? provider.getProfession() : provider.getRole(),
-                "phone", provider.getPhone() != null ? provider.getPhone() : "",
-                "profilePicture", provider.getProfilePicture() != null ? provider.getProfilePicture() : "",
-                "jobsDone", jobsDone,
-                "rating", averageRating,
-                "reviewCount", reviewCount,
-                "reviews", reviewDTOs
-            ));
+                    "id", provider.getId(),
+                    "username", provider.getUsername(),
+                    "profession", provider.getProfession() != null ? provider.getProfession() : provider.getRole(),
+                    "phone", provider.getPhone() != null ? provider.getPhone() : "",
+                    "profilePicture", provider.getProfilePicture() != null ? provider.getProfilePicture() : "",
+                    "jobsDone", jobsDone,
+                    "rating", averageRating,
+                    "reviewCount", reviewCount,
+                    "reviews", reviewDTOs));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

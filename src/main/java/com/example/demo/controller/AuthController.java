@@ -165,7 +165,7 @@ public class AuthController {
             user.setPhone(req.getPhone().trim());
             user.setPassword(passwordEncoder.encode(req.getPassword()));
             user.setRole(role);
-            user.setStatus(role.equals("PROVIDER") ? "PENDING" : "ACTIVE");
+            user.setStatus(role.equals("PROVIDER") ? "PENDING" : "AWAITING_VERIFICATION");
             if (role.equals("PROVIDER") && req.getProfession() != null) {
                 user.setProfession(req.getProfession());
             }
@@ -173,13 +173,20 @@ public class AuthController {
                 user.setVerificationDocument(req.getVerificationDocument());
             }
 
-            if (role.equals("PROVIDER")) {
-                // Generate a 6-digit verification code
-                String code = String.format("%06d", new java.util.Random().nextInt(999999));
-                user.setVerificationCode(code);
-            }
+            // Generate a 6-digit verification code for both roles
+            String code = String.format("%06d", new java.util.Random().nextInt(999999));
+            user.setVerificationCode(code);
 
             userRepository.save(user);
+
+            // Send verification email to CLIENT
+            if (role.equals("CLIENT")) {
+                try {
+                    emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), code);
+                } catch (Exception e) {
+                    System.err.println("ERREUR ENVOI EMAIL: " + e.getMessage());
+                }
+            }
 
             // 6. Log succès
             System.out.println(
@@ -188,22 +195,12 @@ public class AuthController {
             // 7. Logique de réponse différenciée
             Map<String, Object> response = new HashMap<>();
 
-            if (role.equals("CLIENT")) { // AUTO-LOGIN POUR CLIENT
-                // On authentifie manuellement l'utilisateur
-                Authentication auth = authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword()));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-
-                // On renvoie les infos complètes pour le frontend (comme au login)
-                response.put("id", user.getId());
-                response.put("username", user.getUsername());
-                response.put("email", user.getEmail());
+            if (role.equals("CLIENT")) {
+                // Return AWAITING_VERIFICATION status to redirect to email verification screen
                 response.put("role", user.getRole());
                 response.put("status", user.getStatus());
-                if (user.getProfilePicture() != null) {
-                    response.put("profilePicture", user.getProfilePicture());
-                }
-                response.put("message", "Inscription réussie ! Connexion automatique...");
+                response.put("userId", user.getId());
+                response.put("message", "Inscription réussie ! Un code de vérification a été envoyé à votre email.");
             } else { // PROVIDER (EN ATTENTE)
                 response.put("role", user.getRole());
                 response.put("status", user.getStatus());

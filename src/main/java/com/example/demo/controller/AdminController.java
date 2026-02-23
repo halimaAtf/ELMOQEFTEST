@@ -25,14 +25,15 @@ public class AdminController {
     private final UserService userService;
     private final EmailService emailService;
 
-    @Autowired private UserRepository userRepo;
-    @Autowired private DemandeRepository demandeRepo;
+    @Autowired
+    private UserRepository userRepo;
+    @Autowired
+    private DemandeRepository demandeRepo;
     @Autowired
     private SystemSettingRepository settingRepo;
-    
+
     @Autowired
     private SupportTicketRepository supportRepo;
-
 
     // Un seul constructeur pour éviter les conflits d'injection
     public AdminController(UserService userService, EmailService emailService) {
@@ -55,23 +56,23 @@ public class AdminController {
 
         List<Object[]> revenueByMonthRaw = demandeRepo.getRevenueByMonth();
         List<Map<String, Object>> chartData = new java.util.ArrayList<>();
-        
+
         // Add fake base data if DB is empty to prevent visual break
-        if(revenueByMonthRaw.isEmpty()){
+        if (revenueByMonthRaw.isEmpty()) {
             chartData.add(Map.of("name", "Jan", "value", 0));
             chartData.add(Map.of("name", "Feb", "value", 0));
             chartData.add(Map.of("name", "Mar", "value", 0));
             chartData.add(Map.of("name", "Apr", "value", 0));
             chartData.add(Map.of("name", "May", "value", 0));
         } else {
-             for(Object[] row : revenueByMonthRaw) {
-                 Map<String, Object> map = new HashMap<>();
-                 map.put("name", row[0]);
-                 map.put("value", row[1]);
-                 chartData.add(map);
-             }
+            for (Object[] row : revenueByMonthRaw) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("name", row[0]);
+                map.put("value", row[1]);
+                chartData.add(map);
+            }
         }
-        
+
         stats.put("chartData", chartData);
 
         return ResponseEntity.ok(stats);
@@ -97,8 +98,7 @@ public class AdminController {
             }
 
             return ResponseEntity.ok(Map.of(
-                    "message", accept ? "Prestataire approuvé et activé." : "Demande refusée."
-            ));
+                    "message", accept ? "Prestataire approuvé et activé." : "Demande refusée."));
         } catch (Exception e) {
             // C'est ici que l'erreur "Erreur lors de la validation" est captée
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -131,7 +131,7 @@ public class AdminController {
     }
 
     // ─────────────────────────────────────────────
-    //  SETTINGS
+    // SETTINGS
     // ─────────────────────────────────────────────
     @GetMapping("/settings")
     public ResponseEntity<?> getSettings() {
@@ -148,16 +148,21 @@ public class AdminController {
         setting.setId(1L);
         setting.setPlatformName(newSettings.getPlatformName());
         setting.setSupportEmail(newSettings.getSupportEmail());
-        if(newSettings.getPlatformFee() != null) setting.setPlatformFee(newSettings.getPlatformFee());
-        if(newSettings.getEmailNotifications() != null) setting.setEmailNotifications(newSettings.getEmailNotifications());
-        if(newSettings.getAutoApprove() != null) setting.setAutoApprove(newSettings.getAutoApprove());
-        
+        if (newSettings.getPlatformFee() != null)
+            setting.setPlatformFee(newSettings.getPlatformFee());
+        if (newSettings.getEmailNotifications() != null)
+            setting.setEmailNotifications(newSettings.getEmailNotifications());
+        if (newSettings.getAutoApprove() != null)
+            setting.setAutoApprove(newSettings.getAutoApprove());
+        if (newSettings.getAvailableLanguages() != null)
+            setting.setAvailableLanguages(newSettings.getAvailableLanguages());
+
         settingRepo.save(setting);
         return ResponseEntity.ok(Map.of("message", "Settings updated successfully"));
     }
 
     // ─────────────────────────────────────────────
-    //  SUPPORT TICKETS
+    // SUPPORT TICKETS
     // ─────────────────────────────────────────────
     @GetMapping("/support")
     public ResponseEntity<?> getAllSupportTickets() {

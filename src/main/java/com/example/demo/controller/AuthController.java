@@ -24,14 +24,17 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class AuthController {
 
-    @Autowired private UserRepository userRepository;
-    @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private AuthenticationManager authenticationManager;
-    @Autowired private EmailService emailService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private AuthenticationManager authenticationManager;
+    @Autowired
+    private EmailService emailService;
 
-   
-    //  LOGIN
-    
+    // LOGIN
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req, HttpServletRequest request) {
         try {
@@ -45,8 +48,7 @@ public class AuthController {
 
             // 2. Authentifier
             Authentication auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
-            );
+                    new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword()));
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             // 3. Récupérer l'utilisateur
@@ -66,26 +68,22 @@ public class AuthController {
                     return ResponseEntity.ok().body(Map.of(
                             "status", "AWAITING_VERIFICATION",
                             "userId", user.getId(),
-                            "message", "Veuillez entrer le code de vérification reçu par email."
-                    ));
+                            "message", "Veuillez entrer le code de vérification reçu par email."));
                 }
                 case "PENDING" -> {
                     SecurityContextHolder.clearContext();
                     return ResponseEntity.status(403).body(Map.of(
-                            "error", "Votre compte est en attente de validation par un administrateur."
-                    ));
+                            "error", "Votre compte est en attente de validation par un administrateur."));
                 }
                 case "REJECTED" -> {
                     SecurityContextHolder.clearContext();
                     return ResponseEntity.status(403).body(Map.of(
-                            "error", "Votre demande a ete refusee. Contactez le support."
-                    ));
+                            "error", "Votre demande a ete refusee. Contactez le support."));
                 }
                 case "SUSPENDED" -> {
                     SecurityContextHolder.clearContext();
                     return ResponseEntity.status(403).body(Map.of(
-                            "error", "Votre compte a ete suspendu. Contactez le support."
-                    ));
+                            "error", "Votre compte a ete suspendu. Contactez le support."));
                 }
             }
 
@@ -93,8 +91,7 @@ public class AuthController {
             HttpSession session = request.getSession(true);
             session.setAttribute(
                     HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
-                    SecurityContextHolder.getContext()
-            );
+                    SecurityContextHolder.getContext());
 
             // 7. Réponse
             Map<String, Object> response = new HashMap<>();
@@ -114,20 +111,18 @@ public class AuthController {
 
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401).body(Map.of(
-                    "error", "Nom d'utilisateur ou mot de passe incorrect"
-            ));
+                    "error", "Nom d'utilisateur ou mot de passe incorrect"));
         } catch (Exception e) {
             // ✅ Log l'erreur exacte dans IntelliJ console
             System.err.println("=== ERREUR LOGIN : " + e.getClass().getName() + " : " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of(
-                    "error", e.getMessage() != null ? e.getMessage() : "Erreur inconnue"
-            ));
+                    "error", e.getMessage() != null ? e.getMessage() : "Erreur inconnue"));
         }
     }
 
     // ─────────────────────────────────────────────
-    //  REGISTER
+    // REGISTER
     // ─────────────────────────────────────────────
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
@@ -147,23 +142,20 @@ public class AuthController {
             // 2. Vérifier unicité username
             if (userRepository.findByUsername(req.getUsername()).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Ce nom d'utilisateur est déjà utilisé"
-                ));
+                        "error", "Ce nom d'utilisateur est déjà utilisé"));
             }
 
             // 3. Vérifier unicité email
             if (userRepository.findByEmail(req.getEmail()).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Cet email est déjà utilisé"
-                ));
+                        "error", "Cet email est déjà utilisé"));
             }
 
             // 4. Valider le rôle
             String role = req.getRole().toUpperCase();
             if (!role.equals("CLIENT") && !role.equals("PROVIDER")) {
                 return ResponseEntity.badRequest().body(Map.of(
-                        "error", "Rôle invalide : " + role
-                ));
+                        "error", "Rôle invalide : " + role));
             }
 
             // 5. Créer l'utilisateur
@@ -177,6 +169,9 @@ public class AuthController {
             if (role.equals("PROVIDER") && req.getProfession() != null) {
                 user.setProfession(req.getProfession());
             }
+            if (role.equals("PROVIDER") && req.getVerificationDocument() != null) {
+                user.setVerificationDocument(req.getVerificationDocument());
+            }
 
             if (role.equals("PROVIDER")) {
                 // Generate a 6-digit verification code
@@ -186,17 +181,17 @@ public class AuthController {
 
             userRepository.save(user);
 
-            // 6. Log succès 
-            System.out.println("=== INSCRIPTION OK : " + user.getUsername() + " / " + user.getRole() + " / " + user.getStatus());
+            // 6. Log succès
+            System.out.println(
+                    "=== INSCRIPTION OK : " + user.getUsername() + " / " + user.getRole() + " / " + user.getStatus());
 
             // 7. Logique de réponse différenciée
             Map<String, Object> response = new HashMap<>();
-            
+
             if (role.equals("CLIENT")) { // AUTO-LOGIN POUR CLIENT
                 // On authentifie manuellement l'utilisateur
                 Authentication auth = authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword())
-                );
+                        new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword()));
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
                 // On renvoie les infos complètes pour le frontend (comme au login)
@@ -221,12 +216,12 @@ public class AuthController {
             System.err.println("=== ERREUR REGISTER : " + e.getClass().getName() + " : " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of(
-                    "error", e.getMessage() != null ? e.getMessage() : "Erreur inconnue lors de l'inscription"
-            ));
+                    "error", e.getMessage() != null ? e.getMessage() : "Erreur inconnue lors de l'inscription"));
         }
     }
+
     // ─────────────────────────────────────────────
-    //  VERIFY CODE
+    // VERIFY CODE
     // ─────────────────────────────────────────────
     @PostMapping("/verify-code")
     public ResponseEntity<?> verifyCode(@RequestBody Map<String, String> request) {
@@ -242,17 +237,19 @@ public class AuthController {
                 // Clear code if you want, but fine to keep it
                 userRepository.save(user);
 
-                return ResponseEntity.ok(Map.of("message", "Compte vérifié avec succès. Vous pouvez maintenant vous connecter."));
+                return ResponseEntity
+                        .ok(Map.of("message", "Compte vérifié avec succès. Vous pouvez maintenant vous connecter."));
             } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "Code de vérification invalide."));
             }
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Erreur serveur"));
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Erreur serveur"));
         }
     }
 
     // ─────────────────────────────────────────────
-    //  RESEND CODE
+    // RESEND CODE
     // ─────────────────────────────────────────────
     @PostMapping("/resend-code")
     public ResponseEntity<?> resendCode(@RequestBody Map<String, String> request) {
@@ -271,17 +268,20 @@ public class AuthController {
                 // Send email
                 emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), user.getVerificationCode());
 
-                return ResponseEntity.ok(Map.of("message", "Nouveau code de vérification envoyé sur votre adresse email."));
+                return ResponseEntity
+                        .ok(Map.of("message", "Nouveau code de vérification envoyé sur votre adresse email."));
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "L'utilisateur n'est pas en attente de vérification."));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "L'utilisateur n'est pas en attente de vérification."));
             }
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Erreur serveur"));
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Erreur serveur"));
         }
     }
 
     // ─────────────────────────────────────────────
-    //  FORGOT PASSWORD
+    // FORGOT PASSWORD
     // ─────────────────────────────────────────────
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
@@ -296,7 +296,8 @@ public class AuthController {
                     .orElseGet(() -> userRepository.findByPhone(contact).orElse(null));
 
             if (user == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Aucun compte trouvé avec cet email ou téléphone."));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Aucun compte trouvé avec cet email ou téléphone."));
             }
 
             // Generate reset code
@@ -304,17 +305,19 @@ public class AuthController {
             user.setVerificationCode(code);
             userRepository.save(user);
 
-            // Send email (always to email even if phone is provided, since we only have EmailService)
+            // Send email (always to email even if phone is provided, since we only have
+            // EmailService)
             emailService.sendPasswordResetEmail(user.getEmail(), user.getUsername(), code);
 
-            return ResponseEntity.ok(Map.of("message", "Le code de réinitialisation a été envoyé à votre adresse email."));
+            return ResponseEntity
+                    .ok(Map.of("message", "Le code de réinitialisation a été envoyé à votre adresse email."));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", "Erreur serveur : " + e.getMessage()));
         }
     }
 
     // ─────────────────────────────────────────────
-    //  RESET PASSWORD
+    // RESET PASSWORD
     // ─────────────────────────────────────────────
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
@@ -339,30 +342,43 @@ public class AuthController {
             user.setVerificationCode(null); // Clear code
             userRepository.save(user);
 
-            return ResponseEntity.ok(Map.of("message", "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter."));
+            return ResponseEntity.ok(
+                    Map.of("message", "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter."));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", "Erreur serveur : " + e.getMessage()));
         }
     }
 
-    //  LOGOUT
+    // LOGOUT
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        if (session != null) session.invalidate();
+        if (session != null)
+            session.invalidate();
         SecurityContextHolder.clearContext();
         return ResponseEntity.ok(Map.of("message", "Deconnexion reussie"));
     }
 
-   
-    //  INNER CLASSES
+    // INNER CLASSES
     public static class LoginRequest {
         private String username;
         private String password;
-        public String getUsername() { return username; }
-        public void setUsername(String u) { this.username = u; }
-        public String getPassword() { return password; }
-        public void setPassword(String p) { this.password = p; }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String u) {
+            this.username = u;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String p) {
+            this.password = p;
+        }
     }
 
     public static class RegisterRequest {
@@ -372,17 +388,62 @@ public class AuthController {
         private String password;
         private String role;
         private String profession;
-        public String getUsername() { return username; }
-        public void setUsername(String u) { this.username = u; }
-        public String getEmail() { return email; }
-        public void setEmail(String e) { this.email = e; }
-        public String getPhone() { return phone; }
-        public void setPhone(String p) { this.phone = p; }
-        public String getPassword() { return password; }
-        public void setPassword(String p) { this.password = p; }
-        public String getRole() { return role; }
-        public void setRole(String r) { this.role = r; }
-        public String getProfession() { return profession; }
-        public void setProfession(String pr) { this.profession = pr; }
+        private String verificationDocument;
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String u) {
+            this.username = u;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String e) {
+            this.email = e;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String p) {
+            this.phone = p;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String p) {
+            this.password = p;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String r) {
+            this.role = r;
+        }
+
+        public String getProfession() {
+            return profession;
+        }
+
+        public void setProfession(String pr) {
+            this.profession = pr;
+        }
+
+        public String getVerificationDocument() {
+            return verificationDocument;
+        }
+
+        public void setVerificationDocument(String v) {
+            this.verificationDocument = v;
+        }
     }
 }

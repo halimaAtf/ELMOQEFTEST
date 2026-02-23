@@ -7,7 +7,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "users")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,12 +21,15 @@ public class User {
 
     private String password;
     private String email;
-    private String role; 
+    private String role;
     private String phone;
     private String status;
-    private String profession; 
+    private String profession;
     @Column(columnDefinition = "LONGTEXT")
     private String profilePicture;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String verificationDocument;
 
     private String verificationCode;
 

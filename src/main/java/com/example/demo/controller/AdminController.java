@@ -49,26 +49,30 @@ public class AdminController {
         // Chiffres réels de la BDD
         stats.put("totalUsers", userRepo.count());
         stats.put("activeProviders", userRepo.countByRoleAndStatus("PROVIDER", "ACTIVE"));
-        stats.put("completedJobs", demandeRepo.countByStatus("TERMINE"));
+        stats.put("completedJobs", demandeRepo.countByStatus("TERMINE") + demandeRepo.countByStatus("TERMINEE"));
 
         Double totalRevenue = demandeRepo.sumRevenueFromCompletedJobs();
         stats.put("revenue", totalRevenue != null ? totalRevenue : 0.0);
 
-        List<Object[]> revenueByMonthRaw = demandeRepo.getRevenueByMonth();
+        List<Object[]> monthlyStatsRaw = demandeRepo.getMonthlyStats();
         List<Map<String, Object>> chartData = new java.util.ArrayList<>();
 
-        // Add fake base data if DB is empty to prevent visual break
-        if (revenueByMonthRaw.isEmpty()) {
-            chartData.add(Map.of("name", "Jan", "value", 0));
-            chartData.add(Map.of("name", "Feb", "value", 0));
-            chartData.add(Map.of("name", "Mar", "value", 0));
-            chartData.add(Map.of("name", "Apr", "value", 0));
-            chartData.add(Map.of("name", "May", "value", 0));
+        // Add fake base data if DB is empty to prevent visual break (shows a flat line instead of breaking everything)
+        if (monthlyStatsRaw.isEmpty()) {
+            chartData.add(Map.of("name", "Jan", "revenue", 0, "jobs", 0));
+            chartData.add(Map.of("name", "Feb", "revenue", 0, "jobs", 0));
+            chartData.add(Map.of("name", "Mar", "revenue", 0, "jobs", 0));
+            chartData.add(Map.of("name", "Apr", "revenue", 0, "jobs", 0));
+            chartData.add(Map.of("name", "May", "revenue", 0, "jobs", 0));
         } else {
-            for (Object[] row : revenueByMonthRaw) {
+            for (Object[] row : monthlyStatsRaw) {
                 Map<String, Object> map = new HashMap<>();
-                map.put("name", row[0]);
-                map.put("value", row[1]);
+                // row[0] is month name, row[1] is revenue, row[2] is jobs count
+                String monthStr = row[0] != null ? row[0].toString() : "Unknown";
+                if(monthStr.length() > 3) monthStr = monthStr.substring(0, 3);
+                map.put("name", monthStr);
+                map.put("revenue", row[1] != null ? row[1] : 0);
+                map.put("jobs", row[2] != null ? row[2] : 0);
                 chartData.add(map);
             }
         }

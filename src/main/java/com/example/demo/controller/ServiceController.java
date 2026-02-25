@@ -42,6 +42,17 @@ public class ServiceController {
         }
     }
 
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Earth radius in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                        * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
     // ── 2. Provider sees available requests (En attente) ──
     @GetMapping("/demande/available")
     public ResponseEntity<?> getAvailableRequests(Authentication auth) {
@@ -71,6 +82,25 @@ public class ServiceController {
             }
             return true;
         }).toList();
+
+        // 3. Filter by distance (50km radius) if provider and request have location
+        // data
+        if (provider.getLatitude() != null && provider.getLongitude() != null) {
+            enAttente = enAttente.stream().filter(d -> {
+                if (d.getLatitude() != null && d.getLongitude() != null) {
+                    double distance = calculateDistance(
+                            provider.getLatitude(), provider.getLongitude(),
+                            d.getLatitude(), d.getLongitude());
+                    d.setDistance(distance); // Set transient field for frontend
+                    return distance <= 50.0;
+                }
+                return false; // Strict location filter: hide requests without location
+            }).toList();
+        } else {
+            // If provider has no location set, do not show requests to avoid showing
+            // requests from other cities
+            enAttente = new ArrayList<>();
+        }
 
         return ResponseEntity.ok(enAttente);
     }
@@ -129,8 +159,18 @@ public class ServiceController {
     // ── 5. Client sees offers for their request ──
     @GetMapping("/demande/{id}/offres")
     public ResponseEntity<List<Offre>> getOffresForDemande(@PathVariable Long id) {
+        DemandeService demande = demandeRepo.findById(id).orElse(null);
         List<Offre> activeOffers = offreRepo.findByDemande_Id(id).stream()
                 .filter(o -> !"REFUSEE".equalsIgnoreCase(o.getStatus()))
+                .peek(o -> {
+                    if (demande != null && demande.getLatitude() != null && demande.getLongitude() != null &&
+                            o.getProvider().getLatitude() != null && o.getProvider().getLongitude() != null) {
+                        double distance = calculateDistance(
+                                demande.getLatitude(), demande.getLongitude(),
+                                o.getProvider().getLatitude(), o.getProvider().getLongitude());
+                        o.setDistance(distance); // Set transient field for frontend
+                    }
+                })
                 .toList();
         return ResponseEntity.ok(activeOffers);
     }
@@ -223,6 +263,52 @@ public class ServiceController {
             review.setDemande(demande);
 
             return ResponseEntity.ok(reviewRepo.save(review));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PutMapping("/demande/{id}/cancel")
+    public ResponseEntity<?> cancelDemande(@PathVariable Long id, Authentication auth) {
+        try {
+            User user = userRepo.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            DemandeService demande = demandeRepo.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Demande not found"));
+
+            // Allow client or assigned provider to cancel
+            boolean isClient = demande.getClient().getId().equals(user.getId());
+            boolean isProvider = demande.getProvider() != null && demande.getProvider().getId().equals(user.getId());
+            if (!isClient && !isProvider) {
+                return ResponseEntity.status(403).body(Map.of("error", "Unauthorized to cancel this request"));
+            }
+
+            demande.setStatus("ANNULEE");
+            demandeRepo.save(demande);
+
+            // Cancel all offers related to this demand
+            List<Offre> offers = offreRepo.findByDemande_Id(demande.getId());
+            if (offers != null) {
+                for (Offre o : offers) {
+                    if (!"REFUSEE".equalsIgnoreCase(o.getStatus())) {
+                        o.setStatus("ANNULEE");
+                        offreRepo.save(o);
+                    }
+                }
+            }
+
+            // Notify the other party
+            User otherParty = isClient ? demande.getProvider() : demande.getClient();
+            if (otherParty != null) {
+                Notification notif = new Notification();
+                notif.setUser(otherParty);
+                notif.setMessage("La demande pour " + demande.getServiceType() + " a été annulée par "
+                        + user.getUsername() + ".");
+                notificationRepo.save(notif);
+            }
+
+            return ResponseEntity.ok(Map.of("success", true, "status", "ANNULEE"));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

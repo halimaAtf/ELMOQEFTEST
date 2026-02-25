@@ -19,6 +19,9 @@ public class Offre {
     private String description;
     private String status = "ACTIVE";
 
+    @Transient
+    private Double distance; // Distance in km from provider to client
+
     @ManyToOne
     @JoinColumn(name = "demande_id")
     @com.fasterxml.jackson.annotation.JsonIgnore
@@ -26,5 +29,5 @@ public class Offre {
 
     @ManyToOne
     @JoinColumn(name = "provider_id")
-    private User provider; 
+    private User provider;
 }

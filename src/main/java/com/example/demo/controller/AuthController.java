@@ -106,6 +106,12 @@ public class AuthController {
             if (user.getProfilePicture() != null) {
                 response.put("profilePicture", user.getProfilePicture());
             }
+            if (user.getLatitude() != null) {
+                response.put("latitude", user.getLatitude());
+            }
+            if (user.getLongitude() != null) {
+                response.put("longitude", user.getLongitude());
+            }
 
             return ResponseEntity.ok(response);
 

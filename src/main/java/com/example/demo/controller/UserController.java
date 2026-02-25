@@ -18,7 +18,7 @@ public class UserController {
     private UserRepository userRepository;
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateUserProfile(@PathVariable Long id, @RequestBody Map<String, String> updates) {
+    public ResponseEntity<?> updateUserProfile(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         try {
             Optional<User> optionalUser = userRepository.findById(id);
             if (optionalUser.isEmpty()) {
@@ -28,19 +28,35 @@ public class UserController {
             User user = optionalUser.get();
 
             if (updates.containsKey("username")) {
-                user.setUsername(updates.get("username"));
+                user.setUsername((String) updates.get("username"));
             }
             if (updates.containsKey("email")) {
-                user.setEmail(updates.get("email"));
+                user.setEmail((String) updates.get("email"));
             }
             if (updates.containsKey("phone")) {
-                user.setPhone(updates.get("phone"));
+                user.setPhone((String) updates.get("phone"));
             }
             if (updates.containsKey("profession")) {
-                user.setProfession(updates.get("profession"));
+                user.setProfession((String) updates.get("profession"));
             }
             if (updates.containsKey("profilePicture")) {
-                user.setProfilePicture(updates.get("profilePicture"));
+                user.setProfilePicture((String) updates.get("profilePicture"));
+            }
+            if (updates.containsKey("latitude")) {
+                Object lat = updates.get("latitude");
+                if (lat instanceof Number) {
+                    user.setLatitude(((Number) lat).doubleValue());
+                } else if (lat instanceof String) {
+                    user.setLatitude(Double.valueOf((String) lat));
+                }
+            }
+            if (updates.containsKey("longitude")) {
+                Object lng = updates.get("longitude");
+                if (lng instanceof Number) {
+                    user.setLongitude(((Number) lng).doubleValue());
+                } else if (lng instanceof String) {
+                    user.setLongitude(Double.valueOf((String) lng));
+                }
             }
 
             userRepository.save(user);
@@ -52,11 +68,16 @@ public class UserController {
                     "phone", user.getPhone() != null ? user.getPhone() : "",
                     "role", user.getRole(),
                     "status", user.getStatus(),
-                    "profession", user.getProfession() != null ? user.getProfession() : ""
-            ));
-            
+                    "profession", user.getProfession() != null ? user.getProfession() : ""));
+
             if (user.getProfilePicture() != null) {
                 response.put("profilePicture", user.getProfilePicture());
+            }
+            if (user.getLatitude() != null) {
+                response.put("latitude", user.getLatitude());
+            }
+            if (user.getLongitude() != null) {
+                response.put("longitude", user.getLongitude());
             }
 
             return ResponseEntity.ok(response);

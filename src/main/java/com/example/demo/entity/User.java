@@ -25,6 +25,8 @@ public class User {
     private String phone;
     private String status;
     private String profession;
+    private Double latitude;
+    private Double longitude;
     @Column(columnDefinition = "LONGTEXT")
     private String profilePicture;
 

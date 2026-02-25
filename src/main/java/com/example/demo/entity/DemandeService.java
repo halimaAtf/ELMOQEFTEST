@@ -16,8 +16,13 @@ public class DemandeService {
     private String serviceType;
     private String description;
     private String adresse;
+    private Double latitude;
+    private Double longitude;
     private String status = "EN_ATTENTE";
-    
+
+    @Transient
+    private Double distance; // Distance en km par rapport à l'utilisateur courant
+
     @Column(name = "created_at")
     private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
 
@@ -32,7 +37,7 @@ public class DemandeService {
 
     @ManyToOne
     @JoinColumn(name = "provider_id")
-    private User provider; 
+    private User provider;
 
     @OneToMany(mappedBy = "demande", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Offre> offres;

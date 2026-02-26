@@ -52,7 +52,6 @@ public class ChatController {
                         .body(Map.of("error", "Unauthorized to view messages for this request"));
             }
 
-
             List<ChatMessage> messages = chatMessageRepository.findByDemandeIdOrderByTimestampAsc(demandeId);
             return ResponseEntity.ok(messages);
         } catch (Exception e) {
@@ -79,7 +78,8 @@ public class ChatController {
             if (demande.getStatus() == null || demande.getStatus().equals("EN_ATTENTE")) {
                 return ResponseEntity.badRequest().body(Map.of("error", "You can only chat on accepted requests"));
             }
-            if (demande.getStatus().equals("TERMINE") || demande.getStatus().equals("TERMINEE") || demande.getStatus().equals("ANNULE") || demande.getStatus().equals("ANNULEEE")) {
+            if (demande.getStatus().equals("TERMINE") || demande.getStatus().equals("TERMINEE")
+                    || demande.getStatus().equals("ANNULE") || demande.getStatus().equals("ANNULEEE")) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Cannot send messages for closed requests"));
             }
 
@@ -111,7 +111,8 @@ public class ChatController {
             // Add a Notification for the receiver
             Notification notif = new Notification();
             notif.setUser(receiver);
-            notif.setMessage("Nouveau message de " + currentUser.getUsername() + " pour la demande " + demande.getServiceType());
+            notif.setMessage(
+                    "Nouveau message de " + currentUser.getUsername() + " pour la demande " + demande.getServiceType());
             notificationRepository.save(notif);
 
             return ResponseEntity.ok(msg);
@@ -120,11 +121,48 @@ public class ChatController {
             return ResponseEntity.status(500).body(Map.of("error", "Server Error"));
         }
     }
+
     @GetMapping("/user/{partnerId}")
     public ResponseEntity<?> getMessagesByUser(@PathVariable Long partnerId, Authentication auth) {
         try {
-            User currentUser = userRepository.findByUsername(auth.getName()).orElseThrow(() -> new RuntimeException("User not found"));
-            List<ChatMessage> messages = chatMessageRepository.findChatHistoryBetweenUsers(currentUser.getId(), partnerId);
+            User currentUser = userRepository.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            boolean hasActive = false;
+            DemandeService activeDemande = null;
+
+            List<DemandeService> sharedClient = demandeRepository.findByClient_Id(currentUser.getId());
+            if (sharedClient != null) {
+                for (DemandeService d : sharedClient) {
+                    if (d.getProvider() != null && d.getProvider().getId().equals(partnerId)
+                            && "EN_COURS".equals(d.getStatus())) {
+                        hasActive = true;
+                        activeDemande = d;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasActive) {
+                List<DemandeService> sharedProvider = demandeRepository.findByProvider_Id(currentUser.getId());
+                if (sharedProvider != null) {
+                    for (DemandeService d : sharedProvider) {
+                        if (d.getClient() != null && d.getClient().getId().equals(partnerId)
+                                && "EN_COURS".equals(d.getStatus())) {
+                            hasActive = true;
+                            activeDemande = d;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!hasActive) {
+                return ResponseEntity.ok(List.of()); // No active chat, chat closed
+            }
+
+            List<ChatMessage> messages = chatMessageRepository
+                    .findByDemandeIdOrderByTimestampAsc(activeDemande.getId());
             return ResponseEntity.ok(messages);
         } catch (Exception e) {
             e.printStackTrace();
@@ -138,8 +176,10 @@ public class ChatController {
             @RequestBody Map<String, Object> payload,
             Authentication auth) {
         try {
-            User currentUser = userRepository.findByUsername(auth.getName()).orElseThrow(() -> new RuntimeException("User not found"));
-            User receiver = userRepository.findById(partnerId).orElseThrow(() -> new RuntimeException("Receiver not found"));
+            User currentUser = userRepository.findByUsername(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            User receiver = userRepository.findById(partnerId)
+                    .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
             boolean hasActive = false;
             DemandeService activeDemande = null;
@@ -147,7 +187,8 @@ public class ChatController {
             List<DemandeService> sharedClient = demandeRepository.findByClient_Id(currentUser.getId());
             if (sharedClient != null) {
                 for (DemandeService d : sharedClient) {
-                    if (d.getProvider() != null && d.getProvider().getId().equals(partnerId) && "EN_COURS".equals(d.getStatus())) {
+                    if (d.getProvider() != null && d.getProvider().getId().equals(partnerId)
+                            && "EN_COURS".equals(d.getStatus())) {
                         hasActive = true;
                         activeDemande = d;
                         break;
@@ -159,7 +200,8 @@ public class ChatController {
                 List<DemandeService> sharedProvider = demandeRepository.findByProvider_Id(currentUser.getId());
                 if (sharedProvider != null) {
                     for (DemandeService d : sharedProvider) {
-                        if (d.getClient() != null && d.getClient().getId().equals(partnerId) && "EN_COURS".equals(d.getStatus())) {
+                        if (d.getClient() != null && d.getClient().getId().equals(partnerId)
+                                && "EN_COURS".equals(d.getStatus())) {
                             hasActive = true;
                             activeDemande = d;
                             break;
@@ -169,7 +211,8 @@ public class ChatController {
             }
 
             if (!hasActive) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Cannot send messages. No active requests (EN_COURS) exist between you."));
+                return ResponseEntity.badRequest().body(
+                        Map.of("error", "Cannot send messages. No active requests (EN_COURS) exist between you."));
             }
 
             String content = payload.get("content").toString();

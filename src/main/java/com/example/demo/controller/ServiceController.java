@@ -26,7 +26,7 @@ public class ServiceController {
     @Autowired
     private NotificationRepository notificationRepo;
 
-    //  Client creates request
+    // Client creates request
     @PostMapping("/demande/create")
     public ResponseEntity<?> createDemande(@RequestBody DemandeService d, Authentication auth) {
         try {
@@ -53,7 +53,7 @@ public class ServiceController {
         return R * c;
     }
 
-    //  Provider sees available requests (En attente) ──
+    // Provider sees available requests (En attente) ──
     @GetMapping("/demande/available")
     public ResponseEntity<?> getAvailableRequests(Authentication auth) {
         User provider = userRepo.findByUsername(auth.getName())
@@ -104,7 +104,7 @@ public class ServiceController {
         return ResponseEntity.ok(enAttente);
     }
 
-    //Client sees my requests ──
+    // Client sees my requests ──
     @GetMapping("/demande/my")
     public ResponseEntity<?> getMyRequests(Authentication auth) {
         User client = userRepo.findByUsername(auth.getName())
@@ -112,7 +112,7 @@ public class ServiceController {
         return ResponseEntity.ok(demandeRepo.findByClient_Id(client.getId()));
     }
 
-    //  Provider sees their assigned requests
+    // Provider sees their assigned requests
     @GetMapping("/demande/provider/my")
     public ResponseEntity<?> getProviderRequests(Authentication auth) {
         User provider = userRepo.findByUsername(auth.getName())
@@ -155,7 +155,7 @@ public class ServiceController {
         }
     }
 
-    //  Client sees offers for their request ──
+    // Client sees offers for their request ──
     @GetMapping("/demande/{id}/offres")
     public ResponseEntity<List<Offre>> getOffresForDemande(@PathVariable Long id) {
         DemandeService demande = demandeRepo.findById(id).orElse(null);
@@ -174,7 +174,7 @@ public class ServiceController {
         return ResponseEntity.ok(activeOffers);
     }
 
-    //  accepts offer
+    // accepts offer
     @PostMapping("/offre/{offreId}/accept")
     public ResponseEntity<?> acceptOffre(@PathVariable Long offreId) {
         Offre offre = offreRepo.findById(offreId)
@@ -229,7 +229,7 @@ public class ServiceController {
         return ResponseEntity.ok(Map.of("message", "Offre refusée"));
     }
 
-    //  Client leaves review for provider
+    // Client leaves review for provider
     @PostMapping("/demande/{id}/review")
     public ResponseEntity<?> leaveReview(@PathVariable Long id, @RequestBody Map<String, Object> req,
             Authentication auth) {
@@ -324,7 +324,8 @@ public class ServiceController {
     }
 
     @PutMapping("/demande/{id}/complete")
-    public ResponseEntity<?> completeDemande(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> req, Authentication auth) {
+    public ResponseEntity<?> completeDemande(@PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> req, Authentication auth) {
         try {
             User provider = userRepo.findByUsername(auth.getName())
                     .orElseThrow(() -> new RuntimeException("Provider not found"));
@@ -374,14 +375,12 @@ public class ServiceController {
         }
     }
 
-
     @GetMapping("/auth/me")
     public ResponseEntity<?> getMe(Authentication auth) {
         if (auth == null)
             return ResponseEntity.status(401).build();
         return ResponseEntity.ok(userRepo.findByUsername(auth.getName()));
     }
-
 
     @PostMapping("/support")
     public ResponseEntity<?> createSupportTicket(@RequestBody Map<String, String> req, Authentication auth) {
@@ -477,7 +476,6 @@ public class ServiceController {
         }
     }
 
-
     @GetMapping("/provider/{username}/profile")
     public ResponseEntity<?> getProviderProfile(@PathVariable String username) {
         try {
@@ -486,9 +484,18 @@ public class ServiceController {
 
             List<DemandeService> myDemandes = demandeRepo.findByProvider_Id(provider.getId());
             int jobsDone = 0;
+            double earnings = 0.0;
             for (DemandeService ds : myDemandes) {
                 if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
                     jobsDone++;
+                    if (ds.getOffres() != null) {
+                        for (Offre o : ds.getOffres()) {
+                            if ("ACCEPTEE".equalsIgnoreCase(o.getStatus())
+                                    || "ACCEPTED".equalsIgnoreCase(o.getStatus())) {
+                                earnings += o.getPrix();
+                            }
+                        }
+                    }
                 }
             }
 
@@ -516,6 +523,7 @@ public class ServiceController {
                     "phone", provider.getPhone() != null ? provider.getPhone() : "",
                     "profilePicture", provider.getProfilePicture() != null ? provider.getProfilePicture() : "",
                     "jobsDone", jobsDone,
+                    "earnings", earnings,
                     "rating", averageRating,
                     "reviewCount", reviewCount,
                     "reviews", reviewDTOs));

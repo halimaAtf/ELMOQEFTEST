@@ -25,5 +25,5 @@ public class SupportTicket {
 
     private LocalDateTime createdAt = LocalDateTime.now();
     
-    private String status = "OPEN"; // OPEN, RESOLVED
+    private String status = "OPEN";
 }

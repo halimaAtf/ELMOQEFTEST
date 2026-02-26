@@ -26,27 +26,26 @@ public class UserService {
         // Mise à jour du statut selon le choix de l'admin
         user.setStatus(accept ? "AWAITING_VERIFICATION" : "REJECTED");
 
-        // On retourne l'utilisateur sauvegardé pour que le Controller accède à user.getEmail()
         return userRepository.save(user);
     }
 
-    // ── 3. Gestion globale des utilisateurs (Ecran User Management) ──
+
     public List<User> getAllUsers() {
         return userRepository.findAll().stream()
                 .filter(u -> !"DELETED".equals(u.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    // ── 4. Suspension (Action du bouton Ban) ──
+    //  Suspension
     public void suspendUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable : " + id));
 
-        user.setStatus("SUSPENDED"); // Changement vers l'état banni
+        user.setStatus("SUSPENDED");
         userRepository.save(user);
     }
 
-    // ── 5. Suppression définitive (Action du bouton Trash) ──
+    //  Suppression définitive
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable avec l'ID : " + id));

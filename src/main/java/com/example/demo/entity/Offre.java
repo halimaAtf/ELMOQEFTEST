@@ -20,7 +20,7 @@ public class Offre {
     private String status = "ACTIVE";
 
     @Transient
-    private Double distance; // Distance in km from provider to client
+    private Double distance;
 
     @ManyToOne
     @JoinColumn(name = "demande_id")

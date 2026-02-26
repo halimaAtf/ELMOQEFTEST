@@ -26,7 +26,7 @@ public class ServiceController {
     @Autowired
     private NotificationRepository notificationRepo;
 
-    // ── 1. Client creates request ──
+    //  Client creates request
     @PostMapping("/demande/create")
     public ResponseEntity<?> createDemande(@RequestBody DemandeService d, Authentication auth) {
         try {
@@ -53,7 +53,7 @@ public class ServiceController {
         return R * c;
     }
 
-    // ── 2. Provider sees available requests (En attente) ──
+    //  Provider sees available requests (En attente) ──
     @GetMapping("/demande/available")
     public ResponseEntity<?> getAvailableRequests(Authentication auth) {
         User provider = userRepo.findByUsername(auth.getName())
@@ -84,7 +84,6 @@ public class ServiceController {
         }).toList();
 
         // 3. Filter by distance (50km radius) if provider and request have location
-        // data
         if (provider.getLatitude() != null && provider.getLongitude() != null) {
             enAttente = enAttente.stream().filter(d -> {
                 if (d.getLatitude() != null && d.getLongitude() != null) {
@@ -94,7 +93,7 @@ public class ServiceController {
                     d.setDistance(distance); // Set transient field for frontend
                     return distance <= 50.0;
                 }
-                return false; // Strict location filter: hide requests without location
+                return false;
             }).toList();
         } else {
             // If provider has no location set, do not show requests to avoid showing
@@ -105,7 +104,7 @@ public class ServiceController {
         return ResponseEntity.ok(enAttente);
     }
 
-    // ── 3. Client sees my requests ──
+    //Client sees my requests ──
     @GetMapping("/demande/my")
     public ResponseEntity<?> getMyRequests(Authentication auth) {
         User client = userRepo.findByUsername(auth.getName())
@@ -113,7 +112,7 @@ public class ServiceController {
         return ResponseEntity.ok(demandeRepo.findByClient_Id(client.getId()));
     }
 
-    // ── 3.5. Provider sees their assigned requests ──
+    //  Provider sees their assigned requests
     @GetMapping("/demande/provider/my")
     public ResponseEntity<?> getProviderRequests(Authentication auth) {
         User provider = userRepo.findByUsername(auth.getName())
@@ -121,7 +120,7 @@ public class ServiceController {
         return ResponseEntity.ok(demandeRepo.findByProvider_Id(provider.getId()));
     }
 
-    // ── 4. Provider creates offer for a request ──
+    // Provider creates offer for a request
     @PostMapping("/offre/create")
     public ResponseEntity<?> createOffre(@RequestBody Map<String, Object> req, Authentication auth) {
         try {
@@ -156,7 +155,7 @@ public class ServiceController {
         }
     }
 
-    // ── 5. Client sees offers for their request ──
+    //  Client sees offers for their request ──
     @GetMapping("/demande/{id}/offres")
     public ResponseEntity<List<Offre>> getOffresForDemande(@PathVariable Long id) {
         DemandeService demande = demandeRepo.findById(id).orElse(null);
@@ -168,14 +167,14 @@ public class ServiceController {
                         double distance = calculateDistance(
                                 demande.getLatitude(), demande.getLongitude(),
                                 o.getProvider().getLatitude(), o.getProvider().getLongitude());
-                        o.setDistance(distance); // Set transient field for frontend
+                        o.setDistance(distance);
                     }
                 })
                 .toList();
         return ResponseEntity.ok(activeOffers);
     }
 
-    // ── 6. Client accepts offer ──
+    //  accepts offer
     @PostMapping("/offre/{offreId}/accept")
     public ResponseEntity<?> acceptOffre(@PathVariable Long offreId) {
         Offre offre = offreRepo.findById(offreId)
@@ -191,7 +190,7 @@ public class ServiceController {
         offre.setStatus("ACCEPTEE");
         offreRepo.save(offre);
 
-        // (Optionnel) Rejeter autres offres
+        // Rejeter autres offres
         List<Offre> others = offreRepo.findByDemande_Id(demande.getId());
         for (Offre o : others) {
             if (!o.getId().equals(offreId)) {
@@ -230,7 +229,7 @@ public class ServiceController {
         return ResponseEntity.ok(Map.of("message", "Offre refusée"));
     }
 
-    // ── 7. Client leaves review for provider ──
+    //  Client leaves review for provider
     @PostMapping("/demande/{id}/review")
     public ResponseEntity<?> leaveReview(@PathVariable Long id, @RequestBody Map<String, Object> req,
             Authentication auth) {
@@ -375,7 +374,7 @@ public class ServiceController {
         }
     }
 
-    // --- PROFIL DYNAMIQUE (Pour Karim Ahmed -> Réel) ---
+
     @GetMapping("/auth/me")
     public ResponseEntity<?> getMe(Authentication auth) {
         if (auth == null)
@@ -383,7 +382,7 @@ public class ServiceController {
         return ResponseEntity.ok(userRepo.findByUsername(auth.getName()));
     }
 
-    // --- SUPPORT TICKET ---
+
     @PostMapping("/support")
     public ResponseEntity<?> createSupportTicket(@RequestBody Map<String, String> req, Authentication auth) {
         try {
@@ -399,7 +398,6 @@ public class ServiceController {
         }
     }
 
-    // --- PROVIDER STATS ---
     @GetMapping("/provider/stats")
     public ResponseEntity<?> getProviderStats(Authentication auth) {
         try {
@@ -413,7 +411,7 @@ public class ServiceController {
             for (DemandeService ds : myDemandes) {
                 if ("TERMINEE".equalsIgnoreCase(ds.getStatus()) || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
                     jobsDone++;
-                    // Find accepted offer for this demande
+
                     if (ds.getOffres() != null) {
                         for (Offre o : ds.getOffres()) {
                             if ("ACCEPTEE".equalsIgnoreCase(o.getStatus())
@@ -445,7 +443,6 @@ public class ServiceController {
         }
     }
 
-    // --- CLIENT STATS ---
     @GetMapping("/client/stats")
     public ResponseEntity<?> getClientStats(Authentication auth) {
         try {
@@ -469,7 +466,6 @@ public class ServiceController {
                 }
             }
 
-            // Clients don't receive reviews yet, so default 5.0
             return ResponseEntity.ok(Map.of(
                     "requestsMade", requestsMade,
                     "totalSpent", totalSpent,
@@ -481,7 +477,7 @@ public class ServiceController {
         }
     }
 
-    // --- GET PROVIDER PUBLIC PROFILE ---
+
     @GetMapping("/provider/{username}/profile")
     public ResponseEntity<?> getProviderProfile(@PathVariable String username) {
         try {

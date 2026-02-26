@@ -52,7 +52,7 @@ public class ChatController {
                         .body(Map.of("error", "Unauthorized to view messages for this request"));
             }
 
-            // Return messages
+
             List<ChatMessage> messages = chatMessageRepository.findByDemandeIdOrderByTimestampAsc(demandeId);
             return ResponseEntity.ok(messages);
         } catch (Exception e) {

@@ -12,15 +12,15 @@ public class Review {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private int rating; // de 1 à 5
+    private int rating;
     
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    private int clientRating; // Rating given by provider to client
+    private int clientRating;
 
     @Column(columnDefinition = "TEXT")
-    private String clientComment; // Comment given by provider to client
+    private String clientComment;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 

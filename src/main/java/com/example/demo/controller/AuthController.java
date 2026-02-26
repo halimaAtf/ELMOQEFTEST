@@ -33,7 +33,6 @@ public class AuthController {
     @Autowired
     private EmailService emailService;
 
-    // LOGIN
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req, HttpServletRequest request) {
@@ -119,7 +118,6 @@ public class AuthController {
             return ResponseEntity.status(401).body(Map.of(
                     "error", "Nom d'utilisateur ou mot de passe incorrect"));
         } catch (Exception e) {
-            // ✅ Log l'erreur exacte dans IntelliJ console
             System.err.println("=== ERREUR LOGIN : " + e.getClass().getName() + " : " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of(
@@ -127,9 +125,6 @@ public class AuthController {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // REGISTER
-    // ─────────────────────────────────────────────
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
         try {
@@ -145,19 +140,17 @@ public class AuthController {
             if (req.getRole() == null || req.getRole().isBlank())
                 return ResponseEntity.badRequest().body(Map.of("error", "Rôle obligatoire"));
 
-            // 2. Vérifier unicité username
+
             if (userRepository.findByUsername(req.getUsername()).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "error", "Ce nom d'utilisateur est déjà utilisé"));
             }
 
-            // 3. Vérifier unicité email
             if (userRepository.findByEmail(req.getEmail()).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "error", "Cet email est déjà utilisé"));
             }
 
-            // 4. Valider le rôle
             String role = req.getRole().toUpperCase();
             if (!role.equals("CLIENT") && !role.equals("PROVIDER")) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -178,8 +171,7 @@ public class AuthController {
             if (role.equals("PROVIDER") && req.getVerificationDocument() != null) {
                 user.setVerificationDocument(req.getVerificationDocument());
             }
-
-            // Generate a 6-digit verification code for both roles
+            //code de veri
             String code = String.format("%06d", new java.util.Random().nextInt(999999));
             user.setVerificationCode(code);
 
@@ -194,7 +186,7 @@ public class AuthController {
                 }
             }
 
-            // 6. Log succès
+
             System.out.println(
                     "=== INSCRIPTION OK : " + user.getUsername() + " / " + user.getRole() + " / " + user.getStatus());
 
@@ -202,7 +194,6 @@ public class AuthController {
             Map<String, Object> response = new HashMap<>();
 
             if (role.equals("CLIENT")) {
-                // Return AWAITING_VERIFICATION status to redirect to email verification screen
                 response.put("role", user.getRole());
                 response.put("status", user.getStatus());
                 response.put("userId", user.getId());
@@ -223,9 +214,6 @@ public class AuthController {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // VERIFY CODE
-    // ─────────────────────────────────────────────
     @PostMapping("/verify-code")
     public ResponseEntity<?> verifyCode(@RequestBody Map<String, String> request) {
         try {
@@ -237,7 +225,6 @@ public class AuthController {
 
             if ("AWAITING_VERIFICATION".equals(user.getStatus()) && code.equals(user.getVerificationCode())) {
                 user.setStatus("ACTIVE");
-                // Clear code if you want, but fine to keep it
                 userRepository.save(user);
 
                 return ResponseEntity
@@ -251,9 +238,6 @@ public class AuthController {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // RESEND CODE
-    // ─────────────────────────────────────────────
     @PostMapping("/resend-code")
     public ResponseEntity<?> resendCode(@RequestBody Map<String, String> request) {
         try {
@@ -263,12 +247,11 @@ public class AuthController {
                     .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
 
             if ("AWAITING_VERIFICATION".equals(user.getStatus())) {
-                // Generer un nouveau code
                 String code = String.format("%06d", new java.util.Random().nextInt(999999));
                 user.setVerificationCode(code);
                 userRepository.save(user);
 
-                // Send email
+                //  envoi email
                 emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), user.getVerificationCode());
 
                 return ResponseEntity
@@ -283,9 +266,7 @@ public class AuthController {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // FORGOT PASSWORD
-    // ─────────────────────────────────────────────
+    //mdp oublier
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         try {
@@ -294,7 +275,7 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Email ou téléphone obligatoire"));
             }
 
-            // Find user by email or phone
+        // trouver user avec email / num de tele
             User user = userRepository.findByEmail(contact)
                     .orElseGet(() -> userRepository.findByPhone(contact).orElse(null));
 
@@ -308,8 +289,8 @@ public class AuthController {
             user.setVerificationCode(code);
             userRepository.save(user);
 
-            // Send email (always to email even if phone is provided, since we only have
-            // EmailService)
+            // Send email
+
             emailService.sendPasswordResetEmail(user.getEmail(), user.getUsername(), code);
 
             return ResponseEntity
@@ -319,9 +300,7 @@ public class AuthController {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // RESET PASSWORD
-    // ─────────────────────────────────────────────
+
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
         try {
@@ -342,7 +321,7 @@ public class AuthController {
 
             // Met à jour le mot de passe
             user.setPassword(passwordEncoder.encode(newPassword));
-            user.setVerificationCode(null); // Clear code
+            user.setVerificationCode(null);
             userRepository.save(user);
 
             return ResponseEntity.ok(
@@ -352,7 +331,6 @@ public class AuthController {
         }
     }
 
-    // LOGOUT
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         HttpSession session = request.getSession(false);

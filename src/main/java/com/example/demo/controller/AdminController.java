@@ -41,12 +41,11 @@ public class AdminController {
         this.emailService = emailService;
     }
 
-    // Statistiques réelles pour le Dashboard
     @GetMapping("/stats")
     public ResponseEntity<?> getDashboardStats() {
         Map<String, Object> stats = new HashMap<>();
 
-        // Chiffres réels de la BDD
+     
         stats.put("totalUsers", userRepo.count());
         stats.put("activeProviders", userRepo.countByRoleAndStatus("PROVIDER", "ACTIVE"));
         stats.put("completedJobs", demandeRepo.countByStatus("TERMINE") + demandeRepo.countByStatus("TERMINEE"));
@@ -92,7 +91,6 @@ public class AdminController {
             @PathVariable Long id,
             @RequestParam boolean accept) {
         try {
-            // Cette méthode doit changer le statut en "ACTIVE" en BDD
             User user = userService.validateProvider(id, accept);
 
             if (accept) {
@@ -104,7 +102,6 @@ public class AdminController {
             return ResponseEntity.ok(Map.of(
                     "message", accept ? "Prestataire approuvé et activé." : "Demande refusée."));
         } catch (Exception e) {
-            // C'est ici que l'erreur "Erreur lors de la validation" est captée
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -134,9 +131,7 @@ public class AdminController {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // SETTINGS
-    // ─────────────────────────────────────────────
+
     @GetMapping("/settings")
     public ResponseEntity<?> getSettings() {
         SystemSetting setting = settingRepo.findById(1L).orElseGet(() -> {
@@ -165,11 +160,9 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("message", "Settings updated successfully"));
     }
 
-    // ─────────────────────────────────────────────
-    // SUPPORT TICKETS
-    // ─────────────────────────────────────────────
     @GetMapping("/support")
     public ResponseEntity<?> getAllSupportTickets() {
+
         return ResponseEntity.ok(supportRepo.findAll());
     }
 

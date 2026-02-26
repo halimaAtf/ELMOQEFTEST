@@ -21,7 +21,7 @@ public class DemandeService {
     private String status = "EN_ATTENTE";
 
     @Transient
-    private Double distance; // Distance en km par rapport à l'utilisateur courant
+    private Double distance;
 
     @Column(name = "created_at")
     private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();

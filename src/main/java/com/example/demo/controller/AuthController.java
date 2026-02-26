@@ -33,6 +33,8 @@ public class AuthController {
     @Autowired
     private EmailService emailService;
 
+    // Temporary storage for verification codes before account creation
+    private java.util.Map<String, String> verificationCodes = new java.util.concurrent.ConcurrentHashMap<>();
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req, HttpServletRequest request) {
@@ -125,6 +127,29 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/send-verification-code")
+    public ResponseEntity<?> sendPreRegistrationCode(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String username = request.get("username");
+        if (email == null || email.isBlank() || username == null || username.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email et Username sont obligatoires"));
+        }
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Cet email est déjà utilisé"));
+        }
+        if (userRepository.findByUsername(username).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ce nom d'utilisateur est déjà utilisé"));
+        }
+        String code = String.format("%06d", new java.util.Random().nextInt(999999));
+        verificationCodes.put(email, code);
+        try {
+            emailService.sendVerificationEmail(email, username, code);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Erreur lors de l'envoi de l'email"));
+        }
+        return ResponseEntity.ok(Map.of("message", "Code envoyé à " + email));
+    }
+
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
         try {
@@ -139,7 +164,6 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Mot de passe obligatoire"));
             if (req.getRole() == null || req.getRole().isBlank())
                 return ResponseEntity.badRequest().body(Map.of("error", "Rôle obligatoire"));
-
 
             if (userRepository.findByUsername(req.getUsername()).isPresent()) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -157,6 +181,15 @@ public class AuthController {
                         "error", "Rôle invalide : " + role));
             }
 
+            if (req.getCode() == null || req.getCode().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Code de vérification obligatoire"));
+            }
+
+            String expectedCode = verificationCodes.get(req.getEmail());
+            if (expectedCode == null || !expectedCode.equals(req.getCode())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Code de verification invalide ou expiré"));
+            }
+
             // 5. Créer l'utilisateur
             User user = new User();
             user.setUsername(req.getUsername().trim());
@@ -164,28 +197,16 @@ public class AuthController {
             user.setPhone(req.getPhone().trim());
             user.setPassword(passwordEncoder.encode(req.getPassword()));
             user.setRole(role);
-            user.setStatus(role.equals("PROVIDER") ? "PENDING" : "AWAITING_VERIFICATION");
+            user.setStatus(role.equals("PROVIDER") ? "PENDING" : "ACTIVE");
             if (role.equals("PROVIDER") && req.getProfession() != null) {
                 user.setProfession(req.getProfession());
             }
             if (role.equals("PROVIDER") && req.getVerificationDocument() != null) {
                 user.setVerificationDocument(req.getVerificationDocument());
             }
-            //code de veri
-            String code = String.format("%06d", new java.util.Random().nextInt(999999));
-            user.setVerificationCode(code);
 
             userRepository.save(user);
-
-            // Send verification email to CLIENT
-            if (role.equals("CLIENT")) {
-                try {
-                    emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), code);
-                } catch (Exception e) {
-                    System.err.println("ERREUR ENVOI EMAIL: " + e.getMessage());
-                }
-            }
-
+            verificationCodes.remove(req.getEmail());
 
             System.out.println(
                     "=== INSCRIPTION OK : " + user.getUsername() + " / " + user.getRole() + " / " + user.getStatus());
@@ -197,7 +218,7 @@ public class AuthController {
                 response.put("role", user.getRole());
                 response.put("status", user.getStatus());
                 response.put("userId", user.getId());
-                response.put("message", "Inscription réussie ! Un code de vérification a été envoyé à votre email.");
+                response.put("message", "Inscription réussie ! Vous pouvez maintenant vous connecter.");
             } else { // PROVIDER (EN ATTENTE)
                 response.put("role", user.getRole());
                 response.put("status", user.getStatus());
@@ -251,7 +272,7 @@ public class AuthController {
                 user.setVerificationCode(code);
                 userRepository.save(user);
 
-                //  envoi email
+                // envoi email
                 emailService.sendVerificationEmail(user.getEmail(), user.getUsername(), user.getVerificationCode());
 
                 return ResponseEntity
@@ -266,7 +287,7 @@ public class AuthController {
         }
     }
 
-    //mdp oublier
+    // mdp oublier
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
         try {
@@ -275,7 +296,7 @@ public class AuthController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Email ou téléphone obligatoire"));
             }
 
-        // trouver user avec email / num de tele
+            // trouver user avec email / num de tele
             User user = userRepository.findByEmail(contact)
                     .orElseGet(() -> userRepository.findByPhone(contact).orElse(null));
 
@@ -299,7 +320,6 @@ public class AuthController {
             return ResponseEntity.status(500).body(Map.of("error", "Erreur serveur : " + e.getMessage()));
         }
     }
-
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
@@ -370,6 +390,7 @@ public class AuthController {
         private String role;
         private String profession;
         private String verificationDocument;
+        private String code;
 
         public String getUsername() {
             return username;
@@ -425,6 +446,14 @@ public class AuthController {
 
         public void setVerificationDocument(String v) {
             this.verificationDocument = v;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public void setCode(String code) {
+            this.code = code;
         }
     }
 }

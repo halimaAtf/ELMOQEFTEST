@@ -20,7 +20,16 @@ public class Offre {
     private String status = "ACTIVE";
 
     @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("distance")
     private Double distance;
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("providerRating")
+    private Double providerRating;
+
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonProperty("providerJobsDone")
+    private Integer providerJobsDone;
 
     @ManyToOne
     @JoinColumn(name = "demande_id")

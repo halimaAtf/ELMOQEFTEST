@@ -169,6 +169,25 @@ public class ServiceController {
                                 o.getProvider().getLatitude(), o.getProvider().getLongitude());
                         o.setDistance(distance);
                     }
+
+                    List<Review> reviews = reviewRepo.findByProviderId(o.getProvider().getId());
+                    double avgRating = 5.0;
+                    if (reviews != null && !reviews.isEmpty()) {
+                        avgRating = reviews.stream().mapToInt(Review::getRating).average().orElse(5.0);
+                    }
+                    o.setProviderRating(Math.round(avgRating * 10.0) / 10.0);
+
+                    List<DemandeService> providerJobs = demandeRepo.findByProvider_Id(o.getProvider().getId());
+                    int jobsDone = 0;
+                    if (providerJobs != null) {
+                        for (DemandeService ds : providerJobs) {
+                            if ("TERMINEE".equalsIgnoreCase(ds.getStatus())
+                                    || "TERMINE".equalsIgnoreCase(ds.getStatus())) {
+                                jobsDone++;
+                            }
+                        }
+                    }
+                    o.setProviderJobsDone(jobsDone);
                 })
                 .toList();
         return ResponseEntity.ok(activeOffers);

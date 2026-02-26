@@ -253,14 +253,23 @@ public class ServiceController {
             demande.setStatus("TERMINEE");
             demandeRepo.save(demande);
 
-            Review review = new Review();
+            List<Review> existingReviews = reviewRepo.findByDemandeId(id);
+            Review review;
+            if (!existingReviews.isEmpty()) {
+                review = existingReviews.get(0);
+            } else {
+                review = new Review();
+                review.setClient(client);
+                review.setProvider(demande.getProvider());
+                review.setDemande(demande);
+            }
+
             Object ratingObj = req.get("rating");
-            review.setRating(ratingObj instanceof Number ? ((Number) ratingObj).intValue()
-                    : Integer.parseInt(ratingObj.toString()));
+            if (ratingObj != null) {
+                review.setRating(ratingObj instanceof Number ? ((Number) ratingObj).intValue()
+                        : Integer.parseInt(ratingObj.toString()));
+            }
             review.setComment((String) req.get("comment"));
-            review.setClient(client);
-            review.setProvider(demande.getProvider());
-            review.setDemande(demande);
 
             return ResponseEntity.ok(reviewRepo.save(review));
         } catch (Exception e) {

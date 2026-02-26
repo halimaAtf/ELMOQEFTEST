@@ -32,8 +32,9 @@ public class UserService {
 
     // ── 3. Gestion globale des utilisateurs (Ecran User Management) ──
     public List<User> getAllUsers() {
-        //
-        return userRepository.findAll();
+        return userRepository.findAll().stream()
+                .filter(u -> !"DELETED".equals(u.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     // ── 4. Suspension (Action du bouton Ban) ──
@@ -47,9 +48,17 @@ public class UserService {
 
     // ── 5. Suppression définitive (Action du bouton Trash) ──
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new RuntimeException("Utilisateur introuvable avec l'ID : " + id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable avec l'ID : " + id));
+
+        user.setStatus("DELETED");
+        long timestamp = System.currentTimeMillis();
+        user.setUsername(user.getUsername() + "_deleted_" + timestamp);
+        user.setEmail(user.getEmail() + "_deleted_" + timestamp);
+        if (user.getPhone() != null && !user.getPhone().isEmpty()) {
+            user.setPhone(user.getPhone() + "_deleted_" + timestamp);
         }
-        userRepository.deleteById(id); 
+        
+        userRepository.save(user);
     }
 }

@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,6 +36,65 @@ public class AuthController {
 
     // Temporary storage for verification codes before account creation
     private java.util.Map<String, String> verificationCodes = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @PostMapping("/social-login")
+    public ResponseEntity<?> socialLogin(@RequestBody SocialLoginRequest req, HttpServletRequest request) {
+        try {
+            String email = req.getEmail();
+            if (email == null || email.trim().isEmpty()) {
+                email = req.getProvider() + "_" + java.util.UUID.randomUUID().toString().substring(0, 8)
+                        + "@example.com";
+            }
+
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            if (user == null) {
+                // Register new user via social login
+                user = new User();
+                user.setEmail(email);
+                String username = req.getUsername();
+                if (username == null || username.trim().isEmpty()) {
+                    username = email.split("@")[0];
+                }
+                user.setUsername(username);
+                user.setProfilePicture(req.getProfilePicture());
+                user.setRole(req.getRole() != null ? req.getRole().toUpperCase() : "CLIENT");
+                user.setStatus("ACTIVE");
+                // Random strong password for social users
+                user.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString() + "!A1a"));
+
+                if ("PROVIDER".equals(user.getRole())) {
+                    user.setStatus("PENDING");
+                    user.setProfession(req.getProfession() != null ? req.getProfession() : "Autre");
+                }
+
+                userRepository.save(user);
+            }
+
+            // Authenticate programmatically
+            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(user.getUsername(),
+                    null, Collections.emptyList());
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+
+            HttpSession session = request.getSession(true);
+            session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                    SecurityContextHolder.getContext());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Social login successful");
+            response.put("id", user.getId());
+            response.put("username", user.getUsername());
+            response.put("email", user.getEmail());
+            response.put("role", user.getRole());
+            response.put("status", user.getStatus());
+            response.put("profilePicture", user.getProfilePicture());
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "An error occurred during social login."));
+        }
+    }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req, HttpServletRequest request) {
@@ -454,6 +514,63 @@ public class AuthController {
 
         public void setCode(String code) {
             this.code = code;
+        }
+    }
+
+    public static class SocialLoginRequest {
+        private String email;
+        private String username;
+        private String profilePicture;
+        private String provider;
+        private String role;
+        private String profession;
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getProfilePicture() {
+            return profilePicture;
+        }
+
+        public void setProfilePicture(String profilePicture) {
+            this.profilePicture = profilePicture;
+        }
+
+        public String getProvider() {
+            return provider;
+        }
+
+        public void setProvider(String provider) {
+            this.provider = provider;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public void setRole(String role) {
+            this.role = role;
+        }
+
+        public String getProfession() {
+            return profession;
+        }
+
+        public void setProfession(String profession) {
+            this.profession = profession;
         }
     }
 }

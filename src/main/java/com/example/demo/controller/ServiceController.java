@@ -325,7 +325,7 @@ public class ServiceController {
     }
 
     @PutMapping("/demande/{id}/complete")
-    public ResponseEntity<?> completeDemande(@PathVariable Long id, Authentication auth) {
+    public ResponseEntity<?> completeDemande(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> req, Authentication auth) {
         try {
             User provider = userRepo.findByUsername(auth.getName())
                     .orElseThrow(() -> new RuntimeException("Provider not found"));
@@ -338,6 +338,27 @@ public class ServiceController {
 
             demande.setStatus("TERMINEE");
             demandeRepo.save(demande);
+
+            if (req != null && req.containsKey("rating")) {
+                List<Review> existingReviews = reviewRepo.findByDemandeId(id);
+                Review review;
+                if (!existingReviews.isEmpty()) {
+                    review = existingReviews.get(0);
+                } else {
+                    review = new Review();
+                    review.setClient(demande.getClient());
+                    review.setProvider(provider);
+                    review.setDemande(demande);
+                }
+
+                Object ratingObj = req.get("rating");
+                if (ratingObj != null) {
+                    review.setClientRating(ratingObj instanceof Number ? ((Number) ratingObj).intValue()
+                            : Integer.parseInt(ratingObj.toString()));
+                }
+                review.setClientComment((String) req.get("comment"));
+                reviewRepo.save(review);
+            }
 
             // Notify client
             if (demande.getClient() != null) {

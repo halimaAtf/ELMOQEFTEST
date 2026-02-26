@@ -17,6 +17,11 @@ public class Review {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    private int clientRating; // Rating given by provider to client
+
+    @Column(columnDefinition = "TEXT")
+    private String clientComment; // Comment given by provider to client
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @ManyToOne
